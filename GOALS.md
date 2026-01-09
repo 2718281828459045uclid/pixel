@@ -36,7 +36,7 @@ Set the center point of each populated cell as the center of the cell (rounded).
 
 in all populated cells in the light half, create similar blobs using the light color in their own layer
 
-in LIGHT_CELL only, create an additional layer containing one blob of highlight color.
+in LIGHT_CELL only, create an additional layer containing one smeller blob of highlight color.
 
 I want to audition various blob creation algorithms to make smooth organic shapes as in the shapes in @layers.png.
 

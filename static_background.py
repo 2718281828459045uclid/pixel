@@ -114,12 +114,19 @@ class NoiseBlobGenerator(BlobGenerator):
         
         return value / max_value if max_value > 0 else 0.0
     
-    def generate_blob(self, cell: GridCell, seed: Optional[int] = None) -> Tuple[np.ndarray, int, int]:
-        """Generate blob using elliptical shape with noise, extending beyond cell boundaries."""
+    def generate_blob(self, cell: GridCell, seed: Optional[int] = None, size_scale: float = 1.0) -> Tuple[np.ndarray, int, int]:
+        """Generate blob using elliptical shape with noise, extending beyond cell boundaries.
+        
+        Args:
+            cell: Grid cell to generate blob for
+            seed: Random seed for generation
+            size_scale: Scale factor for blob size (default 1.0, use < 1.0 for smaller blobs)
+        """
         if seed is None:
             seed = random.randint(0, 1000000)
         
-        blob_size = int(max(cell.width, cell.height) * self.extension_factor)
+        effective_extension = self.extension_factor * size_scale
+        blob_size = int(max(cell.width, cell.height) * effective_extension)
         center_x = blob_size // 2
         center_y = blob_size // 2
         offset_x = cell.center_x - center_x
@@ -130,8 +137,8 @@ class NoiseBlobGenerator(BlobGenerator):
         ellipse_ratio_y = 0.7 + random.random() * 0.6
         ellipse_angle = random.random() * math.pi * 2
         
-        max_radius_x = (cell.width * self.extension_factor * 0.5) * ellipse_ratio_x
-        max_radius_y = (cell.height * self.extension_factor * 0.5) * ellipse_ratio_y
+        max_radius_x = (cell.width * effective_extension * 0.5) * ellipse_ratio_x
+        max_radius_y = (cell.height * effective_extension * 0.5) * ellipse_ratio_y
         
         blob = np.zeros((blob_size, blob_size), dtype=bool)
         noise_map = np.zeros((blob_size, blob_size), dtype=np.float32)
@@ -576,7 +583,10 @@ class StaticBackground:
                             self.layers['light'][world_y, world_x] = True
         
         if self.light_cell in self.populated_cells['light']:
-            blob, offset_x, offset_y = self.blob_generator.generate_blob(self.light_cell, self.seed + seed_offset)
+            highlight_scale = 0.65
+            blob, offset_x, offset_y = self.blob_generator.generate_blob(
+                self.light_cell, self.seed + seed_offset, size_scale=highlight_scale
+            )
             blob_h, blob_w = blob.shape
             for local_y in range(blob_h):
                 for local_x in range(blob_w):
@@ -601,18 +611,26 @@ class StaticBackground:
                     canvas.set_pixel(x, y, self.palette['highlight'])
     
     def save_layers(self, prefix: str = "static", scale: int = 1):
-        """Save each layer as a separate image."""
+        """Save each layer as a separate image with transparent backgrounds."""
+        from PIL import Image
+        
         for layer_name in ['bkg', 'shadow', 'light', 'highlight']:
-            canvas = PixelCanvas(self.width, self.height)
             if layer_name == 'bkg':
-                canvas.fill(self.palette['bkg'])
+                img = Image.new('RGB', (self.width, self.height), color=self.palette['bkg'])
             else:
-                canvas.fill(self.palette['bkg'])
+                img = Image.new('RGBA', (self.width, self.height), color=(0, 0, 0, 0))
+                pixels = img.load()
                 for y in range(self.height):
                     for x in range(self.width):
                         if self.layers[layer_name][y, x]:
-                            canvas.set_pixel(x, y, self.palette[layer_name])
-            canvas.save(f"{prefix}_layers_{layer_name}.png", scale)
+                            color = self.palette[layer_name]
+                            pixels[x, y] = (color[0], color[1], color[2], 255)
+            
+            if scale > 1:
+                img = img.resize((self.width * scale, self.height * scale), Image.NEAREST)
+            
+            filename = f"{prefix}_layers_{layer_name}.png"
+            img.save(filename)
     
     def save_composite(self, filename: str = "static_composite.png", scale: int = 1):
         """Save the composite image."""
