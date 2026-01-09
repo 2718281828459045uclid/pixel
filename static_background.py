@@ -63,9 +63,9 @@ class BlobGenerator:
 
 
 class NoiseBlobGenerator(BlobGenerator):
-    """Noise-based blob generation using multi-octave noise."""
+    """Noise-based blob generation using multi-octave noise with organic rounded edges."""
     
-    def __init__(self, noise_scale: float = 0.1, threshold: float = 0.5, octaves: int = 3, extension_factor: float = 1.5):
+    def __init__(self, noise_scale: float = 0.1, threshold: float = 0.5, octaves: int = 3, extension_factor: float = 2.0):
         super().__init__(extension_factor)
         self.noise_scale = noise_scale
         self.threshold = threshold
@@ -115,7 +115,7 @@ class NoiseBlobGenerator(BlobGenerator):
         return value / max_value if max_value > 0 else 0.0
     
     def generate_blob(self, cell: GridCell, seed: Optional[int] = None) -> Tuple[np.ndarray, int, int]:
-        """Generate blob using noise thresholding with rounded edges, extending beyond cell boundaries."""
+        """Generate blob using elliptical shape with noise, extending beyond cell boundaries."""
         if seed is None:
             seed = random.randint(0, 1000000)
         
@@ -124,6 +124,14 @@ class NoiseBlobGenerator(BlobGenerator):
         center_y = blob_size // 2
         offset_x = cell.center_x - center_x
         offset_y = cell.center_y - center_y
+        
+        random.seed(seed)
+        ellipse_ratio_x = 0.7 + random.random() * 0.6
+        ellipse_ratio_y = 0.7 + random.random() * 0.6
+        ellipse_angle = random.random() * math.pi * 2
+        
+        max_radius_x = (cell.width * self.extension_factor * 0.5) * ellipse_ratio_x
+        max_radius_y = (cell.height * self.extension_factor * 0.5) * ellipse_ratio_y
         
         blob = np.zeros((blob_size, blob_size), dtype=bool)
         noise_map = np.zeros((blob_size, blob_size), dtype=np.float32)
@@ -134,67 +142,93 @@ class NoiseBlobGenerator(BlobGenerator):
                 world_y = cell.center_y + (local_y - center_y)
                 noise_map[local_y, local_x] = self.noise2d(world_x, world_y, seed)
         
-        for local_y in range(1, blob_size - 1):
-            for local_x in range(1, blob_size - 1):
-                avg = (
-                    noise_map[local_y, local_x] * 0.5 +
-                    (noise_map[local_y-1, local_x] + noise_map[local_y+1, local_x] +
-                     noise_map[local_y, local_x-1] + noise_map[local_y, local_x+1]) * 0.125
-                )
-                noise_map[local_y, local_x] = avg
+        for _ in range(2):
+            for local_y in range(1, blob_size - 1):
+                for local_x in range(1, blob_size - 1):
+                    avg = (
+                        noise_map[local_y, local_x] * 0.4 +
+                        (noise_map[local_y-1, local_x] + noise_map[local_y+1, local_x] +
+                         noise_map[local_y, local_x-1] + noise_map[local_y, local_x+1]) * 0.15
+                    )
+                    noise_map[local_y, local_x] = avg
         
-        center_dist = math.sqrt(cell.width**2 + cell.height**2) * self.extension_factor
-        max_dist = center_dist * 0.6
-        edge_falloff = max_dist * 0.15
+        cos_a = math.cos(ellipse_angle)
+        sin_a = math.sin(ellipse_angle)
+        edge_falloff = 0.25
         
         for local_y in range(blob_size):
             for local_x in range(blob_size):
                 dx = local_x - center_x
                 dy = local_y - center_y
-                dist_from_center = math.sqrt(dx*dx + dy*dy)
                 
-                dist_factor = 1.0 - (dist_from_center / max_dist)
-                dist_factor = max(0.0, min(1.0, dist_factor))
+                rotated_x = dx * cos_a + dy * sin_a
+                rotated_y = -dx * sin_a + dy * cos_a
                 
-                adjusted_threshold = self.threshold * (1.0 - dist_factor * 0.3)
-                noise_val = noise_map[local_y, local_x]
+                ellipse_dist = math.sqrt((rotated_x / max_radius_x)**2 + (rotated_y / max_radius_y)**2)
                 
-                if dist_from_center > max_dist - edge_falloff:
-                    edge_factor = (dist_from_center - (max_dist - edge_falloff)) / edge_falloff
-                    edge_factor = max(0.0, min(1.0, edge_factor))
-                    adjusted_threshold += edge_factor * 0.2
-                
-                blob[local_y, local_x] = noise_val > adjusted_threshold
+                if ellipse_dist < 1.0 + edge_falloff:
+                    dist_factor = 1.0 - (ellipse_dist / (1.0 + edge_falloff))
+                    dist_factor = max(0.0, min(1.0, dist_factor))
+                    
+                    if ellipse_dist > 1.0:
+                        edge_factor = (ellipse_dist - 1.0) / edge_falloff
+                        edge_factor = max(0.0, min(1.0, edge_factor))
+                        adjusted_threshold = self.threshold + edge_factor * 0.4
+                    else:
+                        adjusted_threshold = self.threshold * (1.0 - dist_factor * 0.3)
+                    
+                    noise_val = noise_map[local_y, local_x]
+                    if noise_val > adjusted_threshold:
+                        blob[local_y, local_x] = True
         
-        blob = self._smooth_edges(blob)
+        blob = self._smooth_edges_aggressive(blob)
         
         return blob, offset_x, offset_y
     
-    def _smooth_edges(self, blob: np.ndarray) -> np.ndarray:
-        """Smooth blob edges for rounded appearance."""
+    
+    def _smooth_edges_aggressive(self, blob: np.ndarray) -> np.ndarray:
+        """Aggressively smooth blob edges for organic rounded appearance."""
         smoothed = blob.copy()
         h, w = blob.shape
         
-        for y in range(1, h - 1):
-            for x in range(1, w - 1):
-                if not blob[y, x]:
-                    neighbor_count = (
-                        int(blob[y-1, x]) + int(blob[y+1, x]) +
-                        int(blob[y, x-1]) + int(blob[y, x+1]) +
-                        int(blob[y-1, x-1]) + int(blob[y-1, x+1]) +
-                        int(blob[y+1, x-1]) + int(blob[y+1, x+1])
+        for iteration in range(4):
+            new_smoothed = smoothed.copy()
+            for y in range(1, h - 1):
+                for x in range(1, w - 1):
+                    cardinal = (
+                        int(smoothed[y-1, x]) + int(smoothed[y+1, x]) +
+                        int(smoothed[y, x-1]) + int(smoothed[y, x+1])
                     )
-                    if neighbor_count >= 5:
-                        smoothed[y, x] = True
+                    diagonal = (
+                        int(smoothed[y-1, x-1]) + int(smoothed[y-1, x+1]) +
+                        int(smoothed[y+1, x-1]) + int(smoothed[y+1, x+1])
+                    )
+                    neighbor_count = cardinal + diagonal
+                    
+                    if not smoothed[y, x]:
+                        if iteration < 2:
+                            if neighbor_count >= 5:
+                                new_smoothed[y, x] = True
+                        else:
+                            if neighbor_count >= 4 or (cardinal >= 2 and diagonal >= 1):
+                                new_smoothed[y, x] = True
+                    else:
+                        if neighbor_count <= 1:
+                            new_smoothed[y, x] = False
+                        elif cardinal == 0 and diagonal <= 1:
+                            if iteration >= 2:
+                                new_smoothed[y, x] = False
+            
+            smoothed = new_smoothed
         
         for y in range(1, h - 1):
             for x in range(1, w - 1):
-                if blob[y, x]:
-                    neighbor_count = (
-                        int(blob[y-1, x]) + int(blob[y+1, x]) +
-                        int(blob[y, x-1]) + int(blob[y, x+1])
+                if smoothed[y, x]:
+                    cardinal_neighbors = (
+                        int(smoothed[y-1, x]) + int(smoothed[y+1, x]) +
+                        int(smoothed[y, x-1]) + int(smoothed[y, x+1])
                     )
-                    if neighbor_count == 0:
+                    if cardinal_neighbors == 0:
                         smoothed[y, x] = False
         
         return smoothed

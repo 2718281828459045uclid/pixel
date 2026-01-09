@@ -43,6 +43,9 @@ I want to audition various blob creation algorithms to make smooth organic shape
 blobs can extend beyond their cells but they will remain centered in their cells.
 
 
+TEST NOTES:  whenever generating output, put all new files in their own folder labeled by date and time.
+
+
 DYNAMIC VERSION (level two)
 
 

@@ -23,12 +23,13 @@ def test_blob_algorithms():
     seed = 42
     
     algorithms = {
-        'noise': NoiseBlobGenerator(noise_scale=0.1, threshold=0.5, octaves=3),
-        'noise_smooth': NoiseBlobGenerator(noise_scale=0.08, threshold=0.45, octaves=4),
-        'probability': ProbabilityBlobGenerator(expansion_prob=0.6, decay_rate=0.95),
-        'probability_wispy': ProbabilityBlobGenerator(expansion_prob=0.4, decay_rate=0.92),
-        'radial': RadialBlobGenerator(base_radius_factor=0.4, noise_scale=0.15),
-        'radial_large': RadialBlobGenerator(base_radius_factor=0.5, noise_scale=0.2),
+        'noise': NoiseBlobGenerator(noise_scale=0.1, threshold=0.5, octaves=3, extension_factor=2.0),
+        'noise_smooth': NoiseBlobGenerator(noise_scale=0.08, threshold=0.45, octaves=4, extension_factor=2.2),
+        'noise_wispy': NoiseBlobGenerator(noise_scale=0.12, threshold=0.48, octaves=3, extension_factor=2.5),
+        'probability': ProbabilityBlobGenerator(expansion_prob=0.6, decay_rate=0.95, extension_factor=2.0),
+        'probability_wispy': ProbabilityBlobGenerator(expansion_prob=0.4, decay_rate=0.92, extension_factor=2.2),
+        'radial': RadialBlobGenerator(base_radius_factor=0.4, noise_scale=0.15, extension_factor=2.0),
+        'radial_large': RadialBlobGenerator(base_radius_factor=0.5, noise_scale=0.2, extension_factor=2.2),
     }
     
     os.makedirs("test_output", exist_ok=True)
@@ -55,7 +56,7 @@ def test_lighting_directions():
     }
     
     width, height = 96, 96
-    generator = NoiseBlobGenerator(noise_scale=0.1, threshold=0.5, octaves=3)
+    generator = NoiseBlobGenerator(noise_scale=0.1, threshold=0.5, octaves=3, extension_factor=2.0)
     seed = 42
     
     os.makedirs("test_output", exist_ok=True)
