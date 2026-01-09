@@ -26,7 +26,7 @@ Based on lighting direction, choose that cell as LIGHT_CELL.  then also choose D
 
 Then define LIGHT_HALF as the six cells closest to the LIGHT_CELL.  This will either be a 2*3 rectangle if the LIGHT_CELL is on a midpoint side, or a triangle containing the middle diagonal and three more cells if the LIGHT_CELL is a corner.  DARK_HALF will be the other 3 cells.
 
-3 of the six cells in light_half will get chosen as populated: LIGHT_CELL plus two other randomly chosen.  DARK_CELL will get populated too.
+2 of the six cells in light_half will get chosen as populated: LIGHT_CELL plus two other randomly chosen.  DARK_CELL will get populated too.
 
 Generate one blob for each of the populated cells.  What is a blob?
 
@@ -39,6 +39,8 @@ in all populated cells in the light half, create similar blobs using the light c
 in LIGHT_CELL only, create an additional layer containing one blob of highlight color.
 
 I want to audition various blob creation algorithms to make smooth organic shapes as in the shapes in @layers.png.
+
+blobs can extend beyond their cells but they will remain centered in their cells.
 
 
 DYNAMIC VERSION (level two)
