@@ -117,7 +117,7 @@ if __name__ == "__main__":
     seed = random.randint(0, 1000000)
     generate_animated_background(
         width=96,
-        height=96,
+        height=96 ,
         lighting_direction=LightingDirection.TOP_RIGHT,
         num_frames=None,
         seed=seed,
