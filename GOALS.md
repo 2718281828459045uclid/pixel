@@ -58,7 +58,9 @@ blobs should be relatively elliptical fitted to their cells, but they can have n
 
 To create animated backgrounds, blobs will move in two ways:
 
-entire blobs will translate by -1, 0, or 1 pixels per frame in x and y directions, randomly.
+all blobs will translate up and to the right 1 pixel per frame as scrolling.
+
+Wrap the image diagonally like asteroids to create a smooth infinite scroll.
 
 blobs will morph their shapes by extending or shrinking their boundaries according to noise.  
 
@@ -66,10 +68,13 @@ blobs will morph their shapes by extending or shrinking their boundaries accordi
 
 If a pixel changes one frame, it and its neighbor (relative to the blob, factoring in the translation) should be more likely to change next frame, so that wisps and edges form on the blobs.
 
-To create an animation, choose a random number of frames between 80 and 120 to make a loop so that the first frame equals the last frame.
+To create an animation, calculate the number of pixels along the canvas of the diagonal and make the animation that many frames so that the scrolling is infinite.
 
-Randomly move all blobs around according to the above rules for half of the frames, then reverse those frames for the second half to return to the beginning.
+### Implementation details:
 
+1) Initial blob generation: blobs are created freeform in all directions and allowed to wrap around canvas edges during generation, so there are no flat walls at canvas boundaries.
+
+2) Frame state storage: Keep an array of complete blob states (list of pixels) for each frame. Generate the first half of frames with random noise-based morphing. Then reverse those morphing changes (while continuing diagonal scrolling) so each blob returns to its initial shape at the end, creating a perfect loop.
 
 
 
