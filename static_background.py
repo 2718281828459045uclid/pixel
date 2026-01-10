@@ -78,7 +78,7 @@ class NoiseBlobGenerator(BlobGenerator):
         return ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 2147483648.0
     
     def _smooth_noise(self, x: float, y: float, seed: int) -> float:
-        """Generate smooth noise using interpolation."""
+        """Bilinear interpolation of hash noise at four integer corners."""
         ix = int(x)
         iy = int(y)
         fx = x - ix
@@ -93,6 +93,7 @@ class NoiseBlobGenerator(BlobGenerator):
             return a + (b - a) * t
         
         def smooth_step(t):
+            # Smoothstep function: 3t^2 - 2t^3 for smooth interpolation
             return t * t * (3.0 - 2.0 * t)
         
         nx0 = lerp(n00, n10, smooth_step(fx))
@@ -100,13 +101,14 @@ class NoiseBlobGenerator(BlobGenerator):
         return lerp(nx0, nx1, smooth_step(fy))
     
     def noise2d(self, x: float, y: float, seed: int) -> float:
-        """Generate 2D noise value using multiple octaves."""
+        """Multi-octave noise: sum of scaled noise at increasing frequencies."""
         value = 0.0
         amplitude = 1.0
         frequency = self.noise_scale
         max_value = 0.0
         
         for i in range(self.octaves):
+            # Each octave: double frequency, half amplitude
             value += self._smooth_noise(x * frequency, y * frequency, seed + i * 1000) * amplitude
             max_value += amplitude
             amplitude *= 0.5
@@ -133,8 +135,10 @@ class NoiseBlobGenerator(BlobGenerator):
         offset_y = cell.center_y - center_y
         
         random.seed(seed)
+        # Ellipse aspect ratios: 0.7 to 1.3
         ellipse_ratio_x = 0.7 + random.random() * 0.6
         ellipse_ratio_y = 0.7 + random.random() * 0.6
+        # Random rotation in [0, 2π]
         ellipse_angle = random.random() * math.pi * 2
         
         max_radius_x = (cell.width * effective_extension * 0.5) * ellipse_ratio_x
@@ -149,9 +153,11 @@ class NoiseBlobGenerator(BlobGenerator):
                 world_y = cell.center_y + (local_y - center_y)
                 noise_map[local_y, local_x] = self.noise2d(world_x, world_y, seed)
         
+        # Smooth noise map: 2 passes of 4-connected neighbor averaging
         for _ in range(2):
             for local_y in range(1, blob_size - 1):
                 for local_x in range(1, blob_size - 1):
+                    # Weighted average: center 0.4, each neighbor 0.15
                     avg = (
                         noise_map[local_y, local_x] * 0.4 +
                         (noise_map[local_y-1, local_x] + noise_map[local_y+1, local_x] +
@@ -168,9 +174,11 @@ class NoiseBlobGenerator(BlobGenerator):
                 dx = local_x - center_x
                 dy = local_y - center_y
                 
+                # Rotate point by ellipse_angle
                 rotated_x = dx * cos_a + dy * sin_a
                 rotated_y = -dx * sin_a + dy * cos_a
                 
+                # Ellipse distance: sqrt((x/rx)^2 + (y/ry)^2)
                 ellipse_dist = math.sqrt((rotated_x / max_radius_x)**2 + (rotated_y / max_radius_y)**2)
                 
                 if ellipse_dist < 1.0 + edge_falloff:
@@ -178,10 +186,12 @@ class NoiseBlobGenerator(BlobGenerator):
                     dist_factor = max(0.0, min(1.0, dist_factor))
                     
                     if ellipse_dist > 1.0:
+                        # Outside ellipse: increase threshold to create soft edge
                         edge_factor = (ellipse_dist - 1.0) / edge_falloff
                         edge_factor = max(0.0, min(1.0, edge_factor))
                         adjusted_threshold = self.threshold + edge_factor * 0.4
                     else:
+                        # Inside ellipse: decrease threshold near center
                         adjusted_threshold = self.threshold * (1.0 - dist_factor * 0.3)
                     
                     noise_val = noise_map[local_y, local_x]

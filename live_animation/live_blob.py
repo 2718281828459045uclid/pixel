@@ -51,11 +51,11 @@ class LiveBlob:
         self.y += dy
         self.frame_count += 1
         
-        if morph:
+        if morph and self.frame_count % 2 == 0:
             self._morph_boundaries(morph_speed)
     
     def _morph_boundaries(self, speed_multiplier: float = 1.0):
-        """Morph blob boundaries using noise-based boiling effect (like AnimatedBlob)."""
+        """Morph blob boundaries using noise-based boiling effect."""
         import random
         h, w = self.blob.shape
         new_blob = self.blob.copy()
@@ -65,6 +65,7 @@ class LiveBlob:
         
         for y in range(1, h - 1):
             for x in range(1, w - 1):
+                # Noise coordinates: local position + offset + time
                 noise_x = x * noise_scale + self.noise_offset_x + time * 10
                 noise_y = y * noise_scale + self.noise_offset_y + time * 10
                 
@@ -73,15 +74,18 @@ class LiveBlob:
                 is_edge = self._is_boundary_pixel(x, y)
                 
                 if self.blob[y, x]:
+                    # Remove edge pixels when noise > 0.55
                     if is_edge and noise_val > 0.55:
                         if random.random() < 0.25 * speed_multiplier:
                             new_blob[y, x] = False
                 else:
+                    # Count 4-connected neighbors
                     neighbor_count = (
                         int(self.blob[y-1, x]) + int(self.blob[y+1, x]) +
                         int(self.blob[y, x-1]) + int(self.blob[y, x+1])
                     )
                     
+                    # Add pixels when 2+ neighbors and noise < 0.45
                     if neighbor_count >= 2:
                         change_prob = 0.15 * speed_multiplier
                         if noise_val < 0.45 and random.random() < change_prob:
@@ -105,7 +109,7 @@ class LiveBlob:
         return neighbors < 4
     
     def _simple_noise(self, x: float, y: float) -> float:
-        """Simple 2D noise function."""
+        """Hash-based 2D noise function. Returns value in [0, 1]."""
         n = int(x) + int(y) * 57
         n = (n << 13) ^ n
         return (1.0 - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0) * 0.5 + 0.5

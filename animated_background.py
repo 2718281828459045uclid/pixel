@@ -60,9 +60,11 @@ class AnimatedBlob:
         
         for y in range(1, h - 1):
             for x in range(1, w - 1):
+                # World coordinates: cell center + local offset + cumulative translation
                 world_x = self.cell.center_x + (x - w // 2) + self.cumulative_x
                 world_y = self.cell.center_y + (y - h // 2) + self.cumulative_y
                 
+                # Noise coordinates: world position scaled + offset + time
                 noise_val = self._hash_noise(
                     int(world_x * noise_scale + self.noise_offset_x + time * 10),
                     int(world_y * noise_scale + self.noise_offset_y + time * 10),
@@ -73,15 +75,18 @@ class AnimatedBlob:
                 was_changed = self.change_map[y, x] if y < self.change_map.shape[0] and x < self.change_map.shape[1] else False
                 
                 if self.blob[y, x]:
+                    # Remove edge pixels when noise > 0.55
                     if is_edge and noise_val > 0.55:
                         if random.random() < 0.25 * speed_multiplier:
                             new_blob[y, x] = False
                 else:
+                    # Count 4-connected neighbors
                     neighbor_count = (
                         int(self.blob[y-1, x]) + int(self.blob[y+1, x]) +
                         int(self.blob[y, x-1]) + int(self.blob[y, x+1])
                     )
                     
+                    # Add pixels when 2+ neighbors and noise < 0.45
                     if neighbor_count >= 2:
                         change_prob = 0.15 * speed_multiplier
                         if was_changed:
@@ -112,7 +117,7 @@ class AnimatedBlob:
             self.cumulative_y += height
     
     def _is_boundary_pixel(self, x: int, y: int) -> bool:
-        """Check if pixel is on the blob boundary."""
+        """Check if pixel is on the blob boundary. Boundary = edge or < 4 neighbors."""
         if not self.blob[y, x]:
             return False
         
@@ -120,6 +125,7 @@ class AnimatedBlob:
         if y == 0 or y == h - 1 or x == 0 or x == w - 1:
             return True
         
+        # Count 4-connected neighbors
         neighbors = (
             int(self.blob[y-1, x]) + int(self.blob[y+1, x]) +
             int(self.blob[y, x-1]) + int(self.blob[y, x+1])
@@ -147,9 +153,11 @@ class AnimatedBlob:
         self.change_map = new_change_map
     
     def _hash_noise(self, x: int, y: int, seed: int) -> float:
-        """Generate pseudo-random value from integer coordinates."""
+        """Hash-based pseudo-random value from integer coordinates. Returns [0, 1]."""
+        # Prime multipliers for spatial hashing
         n = (x * 73856093) ^ (y * 19349663) ^ (seed * 19349669)
         n = (n << 13) ^ n
+        # Hash function: polynomial with bitwise mask to keep in range
         return ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 2147483648.0
     
     def _break_long_flat_edges(self):

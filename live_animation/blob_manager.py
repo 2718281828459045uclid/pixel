@@ -37,7 +37,6 @@ class BlobManager:
         self.spawn_interval = 20
         self.seed_counter = 0
         
-        # Spawn initial blobs
         self._spawn_blobs()
         self._spawn_blobs()
     
@@ -52,7 +51,7 @@ class BlobManager:
         
         for layer in BlobLayer:
             for blob in self.blobs[layer][:]:
-                blob.update(dx, dy, morph=morph, morph_speed=0.5)  # Slower morphing for smoother look
+                blob.update(dx, dy, morph=morph, morph_speed=0.5)
                 if blob.is_offscreen():
                     self.blobs[layer].remove(blob)
     
@@ -69,8 +68,6 @@ class BlobManager:
             offset_x = random.randint(-10, 10)
             offset_y = random.randint(-10, 10)
             
-            # Spawn just off-screen so blobs appear quickly
-            # Moving -1, -1 means they enter from bottom-right
             start_x = self.canvas_width - 5 + offset_x
             start_y = self.canvas_height - 5 + offset_y
             
@@ -112,13 +109,10 @@ class BlobManager:
         """Generate elliptical blob shape using the same method as static backgrounds."""
         from static_background import GridCell
         
-        # Create a cell centered at (0,0) with the desired size
         cell = GridCell(0, 0, 0, 0, width, height)
         blob_array, _, _ = self.blob_generator.generate_blob(cell, seed=self.seed_counter, size_scale=1.0)
         
-        # Ensure blob has pixels (should always have with proper generation)
         if blob_array.sum() == 0:
-            # Fallback: create a simple elliptical blob
             blob_array = np.zeros((height, width), dtype=bool)
             center_x, center_y = width // 2, height // 2
             max_radius_x = width * 0.4
@@ -142,10 +136,14 @@ class BlobManager:
         
         for layer in BlobLayer:
             for blob in self.blobs[layer]:
-                pixels = blob.get_pixels()
-                for x, y in pixels:
-                    if 0 <= x < self.canvas_width and 0 <= y < self.canvas_height:
-                        layers[layer.value][y, x] = True
+                h, w = blob.blob.shape
+                for local_y in range(h):
+                    for local_x in range(w):
+                        if blob.blob[local_y, local_x]:
+                            canvas_x = blob.x + local_x
+                            canvas_y = blob.y + local_y
+                            if 0 <= canvas_x < self.canvas_width and 0 <= canvas_y < self.canvas_height:
+                                layers[layer.value][canvas_y, canvas_x] = True
         
         return layers
     

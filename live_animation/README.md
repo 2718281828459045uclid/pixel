@@ -26,9 +26,12 @@ A 96x96 pixel window will open showing the animation at 60 FPS.
 
 Edit `viewer.py` to adjust:
 - `CANVAS_WIDTH` / `CANVAS_HEIGHT` - Canvas size (default 96x96)
+- `SCALE` - Window scale factor (default 4, so 96x96 canvas displayed at 384x384)
 - `clock.tick(60)` - Target frame rate (default 60 FPS)
 - `morph_speed` in `blob_manager.py` - Morphing speed (default 0.5)
 - `spawn_interval` in `blob_manager.py` - How often new blobs spawn (default 20 frames)
+
+The window maintains a fixed aspect ratio - change `SCALE` to make it bigger or smaller.
 
 ## How It Works
 
