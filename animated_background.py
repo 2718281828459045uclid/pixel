@@ -337,29 +337,47 @@ class AnimatedBlob:
             self.initial_shape = self.blob.copy()
     
     def _remove_singleton_pixels(self):
-        """Remove isolated singleton pixels - moderate version."""
+        """Remove isolated singleton pixels - aggressive version."""
         h, w = self.blob.shape
         new_blob = self.blob.copy()
         
-        for y in range(1, h - 1):
-            for x in range(1, w - 1):
+        for y in range(h):
+            for x in range(w):
                 if self.blob[y, x]:
-                    neighbor_count = (
-                        int(self.blob[y-1, x]) + int(self.blob[y+1, x]) +
-                        int(self.blob[y, x-1]) + int(self.blob[y, x+1]) +
-                        int(self.blob[y-1, x-1]) + int(self.blob[y-1, x+1]) +
-                        int(self.blob[y+1, x-1]) + int(self.blob[y+1, x+1])
-                    )
+                    cardinal = 0
+                    if y > 0 and self.blob[y-1, x]:
+                        cardinal += 1
+                    if y < h - 1 and self.blob[y+1, x]:
+                        cardinal += 1
+                    if x > 0 and self.blob[y, x-1]:
+                        cardinal += 1
+                    if x < w - 1 and self.blob[y, x+1]:
+                        cardinal += 1
+                    
+                    diagonal = 0
+                    if y > 0 and x > 0 and self.blob[y-1, x-1]:
+                        diagonal += 1
+                    if y > 0 and x < w - 1 and self.blob[y-1, x+1]:
+                        diagonal += 1
+                    if y < h - 1 and x > 0 and self.blob[y+1, x-1]:
+                        diagonal += 1
+                    if y < h - 1 and x < w - 1 and self.blob[y+1, x+1]:
+                        diagonal += 1
+                    
+                    neighbor_count = cardinal + diagonal
+                    
                     if neighbor_count == 0:
                         new_blob[y, x] = False
                     elif neighbor_count == 1:
-                        if random.random() < 0.6:
+                        new_blob[y, x] = False
+                    elif neighbor_count == 2 and cardinal <= 1:
+                        if random.random() < 0.8:
                             new_blob[y, x] = False
         
         self.blob = new_blob
     
     def _remove_skinny_rectangles(self):
-        """Remove 1-pixel-wide rectangles (thin strips)."""
+        """Remove 1-pixel-wide rectangles (thin strips) and 2x1/1x2 blobs."""
         h, w = self.blob.shape
         new_blob = self.blob.copy()
         
@@ -402,6 +420,46 @@ class AnimatedBlob:
                         for i in range(3):
                             if random.random() < 0.5:
                                 new_blob[y + i, x] = False
+        
+        for y in range(h - 1):
+            for x in range(w - 1):
+                if self.blob[y, x] and self.blob[y, x + 1]:
+                    has_above = False
+                    if y > 0:
+                        has_above = self.blob[y - 1, x] or self.blob[y - 1, x + 1]
+                    has_below = False
+                    if y < h - 2:
+                        has_below = self.blob[y + 1, x] or self.blob[y + 1, x + 1]
+                    has_left = False
+                    if x > 0:
+                        has_left = self.blob[y, x - 1] or (y < h - 1 and self.blob[y + 1, x - 1])
+                    has_right = False
+                    if x < w - 2:
+                        has_right = self.blob[y, x + 2] or (y < h - 1 and self.blob[y + 1, x + 2])
+                    
+                    if not has_above and not has_below:
+                        if random.random() < 0.7:
+                            new_blob[y, x] = False
+                            new_blob[y, x + 1] = False
+                
+                if self.blob[y, x] and self.blob[y + 1, x]:
+                    has_above = False
+                    if y > 0:
+                        has_above = self.blob[y - 1, x] or (x < w - 1 and self.blob[y - 1, x + 1])
+                    has_below = False
+                    if y < h - 2:
+                        has_below = self.blob[y + 2, x] or (x < w - 1 and self.blob[y + 2, x + 1])
+                    has_left = False
+                    if x > 0:
+                        has_left = self.blob[y, x - 1] or self.blob[y + 1, x - 1]
+                    has_right = False
+                    if x < w - 1:
+                        has_right = self.blob[y, x + 1] or self.blob[y + 1, x + 1]
+                    
+                    if not has_left and not has_right:
+                        if random.random() < 0.7:
+                            new_blob[y, x] = False
+                            new_blob[y + 1, x] = False
         
         self.blob = new_blob
     
@@ -624,6 +682,9 @@ class AnimatedBackground:
                 blob.wrap_position(self.width, self.height)
                 if morph:
                     blob.morph_boundaries(frame, speed_multiplier=morph_speed)
+                blob._break_long_flat_edges()
+                blob._remove_skinny_rectangles()
+                blob._remove_singleton_pixels()
                 blob.save_frame_shape()
     
     def render(self, canvas: PixelCanvas):
@@ -674,7 +735,12 @@ class AnimatedBackground:
         for layer_name in ['shadow', 'light', 'highlight']:
             for blob in self.blobs[layer_name]:
                 blob.frame_shapes = []
+                blob.cumulative_x = 0
+                blob.cumulative_y = 0
                 blob.save_frame_shape()
+        
+        total_dx = 0
+        total_dy = 0
         
         for frame in range(half_frames):
             error_x += dx_per_frame
@@ -686,6 +752,8 @@ class AnimatedBackground:
             if dx != 0 or dy != 0:
                 error_x -= dx
                 error_y -= dy
+                total_dx += dx
+                total_dy += dy
             
             self.update_frame(frame, dx, dy, morph=True, morph_speed=morph_speed)
             canvas = PixelCanvas(self.width, self.height)
@@ -699,9 +767,14 @@ class AnimatedBackground:
             dx = int(round(error_x))
             dy = int(round(error_y))
             
-            if dx != 0 or dy != 0:
+            if frame == num_frames - 1:
+                dx = dx_total - total_dx
+                dy = dy_total - total_dy
+            elif dx != 0 or dy != 0:
                 error_x -= dx
                 error_y -= dy
+                total_dx += dx
+                total_dy += dy
             
             reverse_shape_index = num_frames - 1 - frame
             for layer_name in ['shadow', 'light', 'highlight']:
