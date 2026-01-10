@@ -12,7 +12,13 @@ highlight
 
 From there, output four layers and a composite image.  
 
-STATIC VERSION (level one)
+## TECHNICAL NOTES
+generate individual transparent layers per frame as well as sprite sheets of layers or composites
+
+## TESTING NOTES  
+whenever generating output, put all new files in their own folder labeled by date and time.
+
+## STATIC VERSION (level one)
 
 algorithm to create the image:
 
@@ -42,11 +48,28 @@ I want to audition various blob creation algorithms to make smooth organic shape
 
 blobs can extend beyond their cells but they will remain centered in their cells.
 
+blobs should be relatively elliptical fitted to their cells, but they can have noisy, galaxy-like arms and wisps.
 
-TEST NOTES:  whenever generating output, put all new files in their own folder labeled by date and time.
 
 
-DYNAMIC VERSION (level two)
+
+
+## DYNAMIC VERSION (level two)
+
+To create animated backgrounds, blobs will move in two ways:
+
+entire blobs will translate by -1, 0, or 1 pixels per frame in x and y directions, randomly.
+
+blobs will morph their shapes by extending or shrinking their boundaries according to noise.  
+
+"boiling shapes" texture, adding and removing boundary pixels to create motion of the blobs.
+
+If a pixel changes one frame, it and its neighbor (relative to the blob, factoring in the translation) should be more likely to change next frame, so that wisps and edges form on the blobs.
+
+To create an animation, choose a random number of frames between 80 and 120 to make a loop so that the first frame equals the last frame.
+
+Randomly move all blobs around according to the above rules for half of the frames, then reverse those frames for the second half to return to the beginning.
+
 
 
 
