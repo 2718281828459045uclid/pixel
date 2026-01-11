@@ -720,17 +720,28 @@ class AnimatedBackground:
                 if layers['highlight'][y, x]:
                     canvas.set_pixel(x, y, self.palette['highlight'])
     
-    def generate_animation(self, num_frames: Optional[int] = None) -> List[PixelCanvas]:
-        """Generate animation frames: morph forward then reverse, translate along diagonal."""
+    def generate_animation(self, num_frames: Optional[int] = None, 
+                          dx_total: Optional[int] = None, 
+                          dy_total: Optional[int] = None) -> List[PixelCanvas]:
+        """Generate animation frames: morph forward then reverse, translate along specified direction."""
+        if dx_total is None:
+            dx_total = self.width
+        if dy_total is None:
+            dy_total = -self.height
+        
         if num_frames is None:
-            diagonal = int(math.sqrt(self.width**2 + self.height**2))
-            num_frames = diagonal
+            if dx_total == 0 and dy_total == 0:
+                num_frames = 100
+            elif dx_total == 0:
+                num_frames = abs(dy_total)
+            elif dy_total == 0:
+                num_frames = abs(dx_total)
+            else:
+                distance = math.sqrt(dx_total**2 + dy_total**2)
+                num_frames = int(distance)
         
         half_frames = num_frames // 2
         morph_speed = 2.0
-        
-        dx_total = self.width
-        dy_total = -self.height
         
         dx_per_frame = dx_total / num_frames
         dy_per_frame = dy_total / num_frames
