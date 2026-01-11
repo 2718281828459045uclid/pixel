@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Art Shader Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 4px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 5px;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 4px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #4a9eff;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #5aaeff;
+        }
+        
+        button:active {
+            background: #3a8eef;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            border: 2px solid #444;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #000;
+        }
+        
+        .info {
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .fps {
+            display: inline-block;
+            margin-left: 10px;
+            color: #4a9eff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pixel Art Shader Animation</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Canvas Width</label>
+                <input type="number" id="width" value="96" min="32" max="512" step="8">
+            </div>
+            
+            <div class="control-group">
+                <label>Canvas Height</label>
+                <input type="number" id="height" value="96" min="32" max="512" step="8">
+            </div>
+            
+            <div class="control-group">
+                <label>Scale Factor</label>
+                <input type="range" id="scale" min="1" max="16" value="4" step="1">
+                <span id="scaleValue">4x</span>
+            </div>
+            
+            <div class="control-group">
+                <label>Scroll Direction</label>
+                <select id="scrollDir">
+                    <option value="N">North</option>
+                    <option value="NW">Northwest</option>
+                    <option value="W">West</option>
+                    <option value="SW">Southwest</option>
+                    <option value="S">South</option>
+                    <option value="SE">Southeast</option>
+                    <option value="E">East</option>
+                    <option value="NE" selected>Northeast</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Background Color</label>
+                <input type="color" id="bkgColor" value="#3c3250">
+            </div>
+            
+            <div class="control-group">
+                <label>Shadow Color</label>
+                <input type="color" id="shadowColor" value="#1e1928">
+            </div>
+            
+            <div class="control-group">
+                <label>Light Color</label>
+                <input type="color" id="lightColor" value="#9682b4">
+            </div>
+            
+            <div class="control-group">
+                <label>Highlight Color</label>
+                <input type="color" id="highlightColor" value="#ffffff">
+            </div>
+            
+            <div class="control-group">
+                <label>Scroll Speed</label>
+                <input type="range" id="scrollSpeed" min="0" max="0.1" value="0.02" step="0.005">
+                <span id="scrollSpeedValue">0.02</span>
+            </div>
+            
+            <div class="control-group">
+                <label>Target FPS</label>
+                <input type="range" id="targetFPS" min="10" max="60" value="30" step="5">
+                <span id="targetFPSValue">30</span>
+            </div>
+            
+            <div class="control-group">
+                <button id="saveFrame">Save Frame</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="saveShader">Save Shader Code</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="reset">Reset Animation</button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="info">
+            FPS: <span class="fps" id="fps">0</span> | 
+            Blobs: <span id="blobCount">0</span> | 
+            Time: <span id="time">0.0</span>s
+        </div>
+    </div>
+    
+    <script src="blob-renderer.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
