@@ -133,23 +133,65 @@ class BlobTestGenerator:
                                 new_blob[y, x] = True
             
             blob = new_blob
+            blob = self._cleanup_singletons(blob)
         
         return blob
     
+    def _cleanup_singletons(self, blob: np.ndarray) -> np.ndarray:
+        """Remove singleton pixels and isolated pixels."""
+        cleaned = blob.copy()
+        h, w = blob.shape
+        
+        for y in range(h):
+            for x in range(w):
+                if blob[y, x]:
+                    cardinal = 0
+                    if y > 0 and blob[y-1, x]:
+                        cardinal += 1
+                    if y < h - 1 and blob[y+1, x]:
+                        cardinal += 1
+                    if x > 0 and blob[y, x-1]:
+                        cardinal += 1
+                    if x < w - 1 and blob[y, x+1]:
+                        cardinal += 1
+                    
+                    diagonal = 0
+                    if y > 0 and x > 0 and blob[y-1, x-1]:
+                        diagonal += 1
+                    if y > 0 and x < w - 1 and blob[y-1, x+1]:
+                        diagonal += 1
+                    if y < h - 1 and x > 0 and blob[y+1, x-1]:
+                        diagonal += 1
+                    if y < h - 1 and x < w - 1 and blob[y+1, x+1]:
+                        diagonal += 1
+                    
+                    total_neighbors = cardinal + diagonal
+                    
+                    if total_neighbors == 0:
+                        cleaned[y, x] = False
+                    elif total_neighbors == 1:
+                        cleaned[y, x] = False
+                    elif cardinal == 0 and diagonal <= 1:
+                        cleaned[y, x] = False
+        
+        return cleaned
+    
     def is_boundary_pixel(self, blob: np.ndarray, x: int, y: int) -> bool:
-        """Check if pixel is on blob boundary."""
+        """Check if pixel is on blob boundary (has at least one empty 4-connected neighbor)."""
         if not blob[y, x]:
             return False
         
         h, w = blob.shape
+        
         if y == 0 or y == h - 1 or x == 0 or x == w - 1:
             return True
         
-        neighbors = (
-            int(blob[y-1, x]) + int(blob[y+1, x]) +
-            int(blob[y, x-1]) + int(blob[y, x+1])
+        has_empty_neighbor = (
+            not blob[y-1, x] or not blob[y+1, x] or
+            not blob[y, x-1] or not blob[y, x+1]
         )
-        return neighbors < 4
+        
+        return has_empty_neighbor
     
     def render_test_image(self, blob: np.ndarray, seed: int, scale: int = 8) -> Image.Image:
         """Render test image with bkg, blob, center point, and yellow boundaries."""
@@ -159,10 +201,16 @@ class BlobTestGenerator:
         center_x = self.canvas_size // 2
         center_y = self.canvas_size // 2
         
+        boundary_map = np.zeros((self.canvas_size, self.canvas_size), dtype=bool)
+        for y in range(self.canvas_size):
+            for x in range(self.canvas_size):
+                if blob[y, x] and self.is_boundary_pixel(blob, x, y):
+                    boundary_map[y, x] = True
+        
         for y in range(self.canvas_size):
             for x in range(self.canvas_size):
                 if blob[y, x]:
-                    if self.is_boundary_pixel(blob, x, y):
+                    if boundary_map[y, x]:
                         pixels[x, y] = (255, 255, 0)
                     else:
                         pixels[x, y] = (150, 130, 180)
