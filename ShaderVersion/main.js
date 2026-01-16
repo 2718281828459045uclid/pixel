@@ -12,7 +12,7 @@ const params = {
     height: 96,
     scale: 4,
     scrollDir: 'NE',
-    scrollSpeed: 0.02,
+    scrollSpeed: 0.03,
     targetFPS: 30,
     colors: {
         bkg: '#3c3250',
@@ -156,7 +156,7 @@ function animate() {
         params.scrollDir,
         params.scrollSpeed,
         elapsed,
-        1.0
+        0.3
     );
     
     document.getElementById('blobCount').textContent = renderer.blobs.length;

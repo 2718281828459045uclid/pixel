@@ -9,6 +9,7 @@ uniform float u_morphAmount;
 #define MAX_BLOBS 64
 uniform int u_numBlobs;
 uniform vec3 u_blobs[MAX_BLOBS];
+uniform vec4 u_blob_props[MAX_BLOBS];
 
 vec3 hash3(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
@@ -50,7 +51,7 @@ float fbm(vec2 p, int octaves) {
     return value;
 }
 
-float blobShape(vec2 p, vec2 center, vec2 size, float angle, float seed, float morph_amount) {
+float blobShape(vec2 p, vec2 center, vec2 size, float angle, float seed, float morph_amount, float growth_bias) {
     vec2 offset = p - center;
     
     float cos_a = cos(angle);
@@ -63,13 +64,13 @@ float blobShape(vec2 p, vec2 center, vec2 size, float angle, float seed, float m
     float ellipse_dist = length(rotated / size);
     
     vec2 worldPos = p;
-    float noise_scale = 0.12;
-    float morph_time = u_time * 0.01;
+    float noise_scale = 0.15;
+    float morph_time = u_time * 0.002;
     
     vec3 hash_seed = hash3(vec2(seed, 0.0));
     vec2 noise_offset = hash_seed.xy * 1000.0;
     
-    vec2 morph_coord = worldPos * noise_scale + noise_offset + vec2(morph_time * 10.0);
+    vec2 morph_coord = worldPos * noise_scale + noise_offset + vec2(morph_time * 2.0);
     float morph_noise = fbm(morph_coord, 3);
     
     float edge_falloff = 0.25;
@@ -85,7 +86,6 @@ float blobShape(vec2 p, vec2 center, vec2 size, float angle, float seed, float m
     
     float base_noise = fbm(worldPos * noise_scale + noise_offset, 3);
     
-    float boundary_morph = 0.0;
     vec2 offsets[4];
     offsets[0] = vec2(1.0, 0.0);
     offsets[1] = vec2(-1.0, 0.0);
@@ -108,24 +108,69 @@ float blobShape(vec2 p, vec2 center, vec2 size, float angle, float seed, float m
     
     bool is_boundary = neighbor_count < 4.0 && dist_factor > 0.1;
     
-    if (is_boundary && morph_amount > 0.0) {
+    if (morph_amount > 0.0) {
         float boundary_noise = fbm(morph_coord * 1.5, 2);
-        if (boundary_noise > 0.55) {
-            float remove_prob = 0.15 * morph_amount;
+        float remove_prob = 0.0;
+        
+        if (growth_bias > 0.0) {
+            if (boundary_noise > 0.65) {
+                remove_prob = 0.02;
+            } else if (boundary_noise > 0.6) {
+                remove_prob = 0.01;
+            }
+        } else if (growth_bias < 0.0) {
             if (boundary_noise > 0.6) {
-                return 0.0;
+                remove_prob = 0.08;
+            } else if (boundary_noise > 0.55) {
+                remove_prob = 0.04;
+            }
+        } else {
+            if (boundary_noise > 0.6) {
+                remove_prob = 0.06;
+            } else if (boundary_noise > 0.55) {
+                remove_prob = 0.03;
+            }
+        }
+        
+        float remove_hash = hash(morph_coord + vec2(seed * 0.1, 0.0));
+        if (is_boundary && remove_hash < remove_prob * morph_amount) {
+            return 0.0;
+        }
+        
+        if (!is_boundary && neighbor_count >= 2.0) {
+            float expansion_noise = fbm(morph_coord * 0.8, 2);
+            float add_prob = 0.0;
+            
+            if (growth_bias > 0.0) {
+                if (expansion_noise < 0.48) {
+                    add_prob = 0.08;
+                } else if (expansion_noise < 0.52) {
+                    add_prob = 0.05;
+                } else if (expansion_noise < 0.58) {
+                    add_prob = 0.02;
+                }
+            } else if (growth_bias < 0.0) {
+                if (expansion_noise < 0.42) {
+                    add_prob = 0.03;
+                } else if (expansion_noise < 0.48 && neighbor_count >= 3.0) {
+                    add_prob = 0.01;
+                }
+            } else {
+                if (expansion_noise < 0.42) {
+                    add_prob = 0.04;
+                } else if (expansion_noise < 0.48 && neighbor_count >= 3.0) {
+                    add_prob = 0.02;
+                }
+            }
+            
+            float add_hash = hash(morph_coord + vec2(seed * 0.1, 1.0));
+            if (add_hash < add_prob * morph_amount) {
+                threshold *= 0.92;
             }
         }
     }
     
-    if (!is_boundary && neighbor_count >= 2.0 && morph_amount > 0.0) {
-        float expansion_noise = fbm(morph_coord * 0.8, 2);
-        if (expansion_noise < 0.45) {
-            threshold *= mix(1.0, 0.85, morph_amount * 0.3);
-        }
-    }
-    
-    float morph_influence = (morph_noise - 0.5) * 0.05 * morph_amount;
+    float morph_influence = (morph_noise - 0.5) * 0.01 * morph_amount;
     float blob_val = dist_factor * (1.0 + morph_influence);
     
     float final_val = blob_val * base_noise;
@@ -146,8 +191,10 @@ void main() {
         if (i >= u_numBlobs) break;
         
         vec3 blob_data = u_blobs[i];
+        vec4 blob_props = u_blob_props[i];
         float layer_type = blob_data.x;
         vec2 center = vec2(blob_data.y, blob_data.z);
+        float growth_bias = blob_props.x;
         
         vec2 world_center = mod(center, u_resolution);
         
@@ -173,7 +220,7 @@ void main() {
             if (layer_type > 1.5) {
                 morph_amt = 0.5;
             }
-            float blob_val = blobShape(pixel, world_center, vec2(size_x, size_y), angle, seed, morph_amt * u_morphAmount);
+            float blob_val = blobShape(pixel, world_center, vec2(size_x, size_y), angle, seed, morph_amt * u_morphAmount, growth_bias);
             
             if (blob_val > 0.5) {
                 if (layer_type < 0.5) {

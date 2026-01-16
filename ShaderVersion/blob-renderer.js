@@ -61,6 +61,7 @@ class BlobRenderer {
         this.uniforms.morphAmount = this.gl.getUniformLocation(this.program, 'u_morphAmount');
         this.uniforms.numBlobs = this.gl.getUniformLocation(this.program, 'u_numBlobs');
         this.uniforms.blobs = this.gl.getUniformLocation(this.program, 'u_blobs');
+        this.uniforms.blobProps = this.gl.getUniformLocation(this.program, 'u_blob_props');
     }
     
     setupAttributes() {
@@ -105,11 +106,20 @@ class BlobRenderer {
     }
     
     createBlob(layerType, centerX, centerY, seed) {
+        const rand = Math.random();
+        let growthTendency = 0.0;
+        if (rand < 0.4) {
+            growthTendency = 0.4 + Math.random() * 0.2;
+        } else if (rand < 0.7) {
+            growthTendency = -0.4 - Math.random() * 0.2;
+        }
+        
         return {
             layerType: layerType,
             centerX: centerX,
             centerY: centerY,
-            seed: seed
+            seed: seed,
+            growthTendency: growthTendency
         };
     }
     
@@ -170,7 +180,7 @@ class BlobRenderer {
     updateBlobs(width, height, scrollDir, scrollSpeed, deltaTime) {
         const scrollVec = this.scrollDirectionToVec(scrollDir);
         
-        const pixelsPerSecond = scrollSpeed * 5.0;
+        const pixelsPerSecond = scrollSpeed * 2.0;
         const moveX = scrollVec[0] * pixelsPerSecond * deltaTime;
         const moveY = scrollVec[1] * pixelsPerSecond * deltaTime;
         
@@ -244,7 +254,7 @@ class BlobRenderer {
         this.gl.uniform2f(this.uniforms.resolution, width, height);
         this.gl.uniform1f(this.uniforms.time, time);
         this.gl.uniform1f(this.uniforms.scale, scale);
-        this.gl.uniform1f(this.uniforms.morphAmount, morphAmount * 0.15);
+        this.gl.uniform1f(this.uniforms.morphAmount, morphAmount * 0.2);
         
         const colorArray = new Float32Array([
             ...this.hexToRgb(colors.bkg),
@@ -258,13 +268,19 @@ class BlobRenderer {
         this.gl.uniform1i(this.uniforms.numBlobs, numBlobs);
         
         const blobArray = new Float32Array(this.maxBlobs * 3);
+        const blobPropsArray = new Float32Array(this.maxBlobs * 4);
         for (let i = 0; i < numBlobs; i++) {
             const blob = this.blobs[i];
             blobArray[i * 3] = blob.layerType;
             blobArray[i * 3 + 1] = blob.centerX;
             blobArray[i * 3 + 2] = blob.centerY;
+            blobPropsArray[i * 4] = blob.growthTendency || 0.0;
+            blobPropsArray[i * 4 + 1] = 0.0;
+            blobPropsArray[i * 4 + 2] = 0.0;
+            blobPropsArray[i * 4 + 3] = 0.0;
         }
         this.gl.uniform3fv(this.uniforms.blobs, blobArray);
+        this.gl.uniform4fv(this.uniforms.blobProps, blobPropsArray);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quadBuffer);
         this.gl.enableVertexAttribArray(this.attributes.position);
