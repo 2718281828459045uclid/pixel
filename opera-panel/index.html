@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opera Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: #0d0b14;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+    gap: 0;
+}
+
+/* ── Stage (canvas area) ── */
+#stage-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    min-height: 100vh;
+    background: #0d0b14;
+}
+
+/* The stage is the positioned container for bg canvas + sprite + textbox */
+#stage {
+    position: relative;
+    /* width/height set by JS */
+    box-shadow: 0 0 60px #1a0a3080, 0 0 0 1px #3a2860;
+}
+
+#bg-canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Control panel sidebar ── */
+#panel {
+    width: 300px;
+    min-width: 280px;
+    background: #13101f;
+    border-left: 1px solid #2a2040;
+    overflow-y: auto;
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: #9682b4;
+    text-transform: uppercase;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #2a2040;
+    margin-bottom: 4px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.row label {
+    color: #888;
+    white-space: nowrap;
+    min-width: 80px;
+}
+.row span.val {
+    color: #ccc;
+    min-width: 36px;
+    text-align: right;
+}
+
+input[type="number"] {
+    width: 70px;
+    padding: 3px 6px;
+    background: #1e1828;
+    border: 1px solid #3a2860;
+    color: #ccc;
+    border-radius: 3px;
+    font-family: inherit;
+}
+
+input[type="range"] {
+    flex: 1;
+    accent-color: #9682b4;
+}
+
+input[type="color"] {
+    width: 36px;
+    height: 24px;
+    border: 1px solid #3a2860;
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 1px;
+    background: #1e1828;
+}
+
+select {
+    flex: 1;
+    padding: 3px 6px;
+    background: #1e1828;
+    border: 1px solid #3a2860;
+    color: #ccc;
+    border-radius: 3px;
+    font-family: inherit;
+}
+
+button {
+    padding: 6px 14px;
+    background: #2a1a50;
+    border: 1px solid #5a3890;
+    color: #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+button:hover { background: #3a2860; }
+button:active { background: #4a3878; }
+
+textarea, input[type="text"], input[type="url"] {
+    width: 100%;
+    padding: 4px 8px;
+    background: #1e1828;
+    border: 1px solid #3a2860;
+    color: #ccc;
+    border-radius: 3px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+input[type="file"] {
+    color: #888;
+    font-size: 11px;
+    width: 100%;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #888;
+}
+.checkbox-row input { accent-color: #9682b4; }
+
+.info-row {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #664488;
+    padding: 4px 0;
+}
+.info-row span { color: #9682b4; }
+
+hr { border: none; border-top: 1px solid #2a2040; }
+
+.color-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+}
+.color-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #888;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Stage ── -->
+<div id="stage-wrap">
+    <div id="stage" style="width:480px; height:480px;">
+        <canvas id="bg-canvas"></canvas>
+        <!-- Sprite and textbox are injected here by JS -->
+    </div>
+</div>
+
+<!-- ── Control panel ── -->
+<div id="panel">
+
+    <div style="font-family:'Cinzel',serif; font-size:16px; color:#9682b4; letter-spacing:0.1em;">
+        Opera Panel
+    </div>
+
+    <!-- Canvas -->
+    <div class="section">
+        <div class="section-title">Canvas</div>
+        <div class="row">
+            <label>Art W</label>
+            <input type="number" id="in-art-w" value="96" min="32" max="512" step="8">
+            <label>Art H</label>
+            <input type="number" id="in-art-h" value="96" min="32" max="512" step="8">
+        </div>
+        <div class="row">
+            <label>Scale</label>
+            <input type="range" id="in-scale" min="1" max="12" value="5" step="1">
+            <span class="val" id="lbl-scale">5×</span>
+        </div>
+    </div>
+
+    <!-- Palette -->
+    <div class="section">
+        <div class="section-title">Palette</div>
+        <div class="color-grid">
+            <div class="color-cell"><input type="color" id="in-bkg"       value="#3c3250"> Background</div>
+            <div class="color-cell"><input type="color" id="in-shadow"    value="#1e1928"> Shadow</div>
+            <div class="color-cell"><input type="color" id="in-light"     value="#9682b4"> Light</div>
+            <div class="color-cell"><input type="color" id="in-highlight" value="#e8d4ff"> Highlight</div>
+        </div>
+    </div>
+
+    <!-- Background blobs -->
+    <div class="section">
+        <div class="section-title">Blobs</div>
+        <div class="row">
+            <label>Direction</label>
+            <select id="in-scroll-dir">
+                <option value="N">North ↑</option>
+                <option value="NE" selected>Northeast ↗</option>
+                <option value="E">East →</option>
+                <option value="SE">Southeast ↘</option>
+                <option value="S">South ↓</option>
+                <option value="SW">Southwest ↙</option>
+                <option value="W">West ←</option>
+                <option value="NW">Northwest ↖</option>
+            </select>
+        </div>
+        <div class="row">
+            <label>Speed</label>
+            <input type="range" id="in-scroll-speed" min="0" max="30" value="6" step="0.5">
+            <span class="val" id="lbl-scroll-speed">6.0</span>
+        </div>
+        <div class="row">
+            <label>Mode</label>
+            <select id="in-scroll-mode">
+                <option value="toroidal" selected>Toroidal (wrap)</option>
+                <option value="flow">Flow (spawn/destroy)</option>
+            </select>
+        </div>
+        <div class="checkbox-row">
+            <input type="checkbox" id="in-boundary">
+            <label for="in-boundary">Show boundary curves (debug)</label>
+        </div>
+        <div class="row" style="gap:6px">
+            <button id="btn-reset" style="flex:1">Reset blobs</button>
+            <button id="btn-save"  style="flex:1">Save frame</button>
+        </div>
+        <div class="info-row">
+            FPS: <span id="fps">—</span> &nbsp;
+            Blobs: <span id="blob-count">—</span> &nbsp;
+            t: <span id="elapsed">0.0</span>s
+        </div>
+    </div>
+
+    <!-- Sprite -->
+    <div class="section">
+        <div class="section-title">Character Sprite</div>
+        <div style="color:#666; font-size:11px; margin-bottom:4px;">
+            Upload a 4-color pixel art PNG (use tools/sprite_processor.py to convert).
+        </div>
+        <input type="file" id="in-sprite" accept="image/png">
+    </div>
+
+    <!-- Text box -->
+    <div class="section">
+        <div class="section-title">Text / Typewriter</div>
+        <textarea id="in-message" rows="3" placeholder="Enter message text...">Amazing grace, how sweet the sound, that saved a wretch like me.</textarea>
+        <div class="row">
+            <label>Duration</label>
+            <input type="number" id="in-msg-dur" value="5000" min="100" max="30000" step="100">
+            <span style="color:#666">ms</span>
+        </div>
+        <div class="row" style="gap:6px">
+            <button id="btn-send-msg" style="flex:1">Play message</button>
+            <button id="btn-clear-msg" style="flex:1">Clear</button>
+        </div>
+    </div>
+
+    <!-- Audio sync -->
+    <div class="section">
+        <div class="section-title">Audio Sync</div>
+        <div style="color:#666; font-size:11px; margin-bottom:4px;">
+            Load audio + syllable JSON (see format in tools/).
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="color:#666; font-size:11px;">Audio file:</label>
+            <input type="file" id="in-audio" accept="audio/*">
+            <label style="color:#666; font-size:11px;">Syllable timestamps JSON:</label>
+            <input type="file" id="in-syllables" accept=".json">
+            <button id="btn-play-audio">▶ Play</button>
+        </div>
+    </div>
+
+    <!-- OSC / SuperCollider -->
+    <div class="section">
+        <div class="section-title">OSC Bridge (SuperCollider)</div>
+        <div style="color:#666; font-size:11px; margin-bottom:4px;">
+            Run osc-bridge/server.js, then connect here.
+        </div>
+        <div class="row">
+            <label>WS URL</label>
+            <input type="url" id="in-osc-url" value="ws://localhost:8080" style="flex:1; padding:3px 6px;">
+        </div>
+        <button id="btn-osc-connect">Connect OSC Bridge</button>
+        <div style="color:#555; font-size:10px; margin-top:4px; line-height:1.5;">
+            From SuperCollider:<br>
+            <code style="color:#776699">NetAddr("localhost",57121).sendMsg("/opera/syllable","A")</code>
+        </div>
+    </div>
+
+</div>
+
+<!-- FPS counter update -->
+<script type="module">
+    import { BlobRenderer } from './js/renderer.js';
+
+    // Patch main.js loop to update info display
+    const fpsEl    = document.getElementById('fps');
+    const blobsEl  = document.getElementById('blob-count');
+    const elapsedEl = document.getElementById('elapsed');
+
+    let frames = 0, lastSec = performance.now();
+
+    const origRAF = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = function(cb) {
+        return origRAF(function(t) {
+            cb(t);
+            frames++;
+            if (t - lastSec >= 1000) {
+                if (fpsEl) fpsEl.textContent = frames;
+                frames = 0;
+                lastSec = t;
+            }
+            // Blob count + elapsed — access renderer from window if exposed
+            if (window._renderer) {
+                if (blobsEl) blobsEl.textContent = window._renderer.blobs.length;
+                if (elapsedEl) elapsedEl.textContent = ((t - (window._startTime||t))/1000).toFixed(1);
+            }
+        });
+    };
+</script>
+<script type="module" src="js/main.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "_comment": "Syllable timestamp file for Opera Panel audio-sync mode.",
+  "_format": "Each entry: { text: string, t: float (seconds from audio start) }",
+  "_usage": "Load this via the 'Syllable timestamps JSON' file input in the panel.",
+
+  "syllables": [
+    { "text": "A",    "t": 1.20 },
+    { "text": "-maz", "t": 1.45 },
+    { "text": "-ing", "t": 1.70 },
+    { "text": " grace,", "t": 2.00 },
+    { "text": " how",  "t": 3.10 },
+    { "text": " sweet", "t": 3.50 },
+    { "text": " the",  "t": 3.90 },
+    { "text": " sound,", "t": 4.20 },
+    { "text": " that",  "t": 5.40 },
+    { "text": " saved", "t": 5.70 },
+    { "text": " a",     "t": 6.10 },
+    { "text": " wretch", "t": 6.30 },
+    { "text": " like",  "t": 6.80 },
+    { "text": " me.",   "t": 7.00 }
+  ]
+}
