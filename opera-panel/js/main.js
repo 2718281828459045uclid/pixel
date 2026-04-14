@@ -38,8 +38,6 @@ let startTime = null, lastTime = null;
 let audioEl   = null;
 
 async function init() {
-    const stage = document.getElementById('stage');
-
     // 1. WebGL background canvas
     const bgCanvas = document.getElementById('bg-canvas');
     const stage    = document.getElementById('stage');
@@ -69,6 +67,9 @@ async function init() {
         bgColor:     'rgba(10, 6, 20, 0.82)',
     });
 
+    // 4. Auto-load maria sprite
+    sprite.load('sprites/maria.png', 64, 36, state.scale);
+
     // 4. Wire up controls panel
     setupControls();
 
@@ -91,7 +92,7 @@ function loop(nowMs) {
     renderer.render(t);
 
     // Sync audio time to textbox if in timestamp mode
-    if (audioEl && !audioEl.paused && state.syllableData) {
+    if (audioEl && state.syllableData) {
         textbox.setAudioTime(audioEl.currentTime);
     }
 }
@@ -160,8 +161,8 @@ function setupControls() {
             const file = e.target.files[0];
             if (!file) return;
             const url = URL.createObjectURL(file);
-            // Guess art dimensions from filename or default to 32×64
-            sprite.load(url, 32, 64, state.scale);
+            // Default to 64×36 (matches maria.png); override as needed
+            sprite.load(url, 64, 36, state.scale);
         });
     }
 
@@ -202,12 +203,18 @@ function setupControls() {
             textbox.setMessageTimestamped(state.syllableData);
         });
     }
-    const playBtn = document.getElementById('btn-play-audio');
-    if (playBtn) {
-        playBtn.addEventListener('click', () => {
-            if (audioEl) audioEl.play();
-        });
-    }
+    const playBtn    = document.getElementById('btn-play-audio');
+    const pauseBtn   = document.getElementById('btn-pause-audio');
+    const restartBtn = document.getElementById('btn-restart-audio');
+    if (playBtn)    playBtn.addEventListener('click',    () => { if (audioEl) audioEl.play(); });
+    if (pauseBtn)   pauseBtn.addEventListener('click',   () => { if (audioEl) audioEl.pause(); });
+    if (restartBtn) restartBtn.addEventListener('click', () => {
+        if (audioEl) {
+            audioEl.currentTime = 0;
+            audioEl.play();
+            textbox.seekAudioTime(0);
+        }
+    });
 
     // OSC connect
     const oscBtn = document.getElementById('btn-osc-connect');

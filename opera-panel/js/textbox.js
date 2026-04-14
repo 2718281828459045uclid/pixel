@@ -137,6 +137,14 @@ export class TextBox {
         this._audioTimeMs = seconds * 1000;
     }
 
+    // Seek to a new audio position — re-reveal syllables from scratch
+    seekAudioTime(seconds) {
+        this._audioTimeMs = seconds * 1000;
+        this._revealed = 0;
+        this._displayedText = '';
+        this._textSpan.textContent = '';
+    }
+
     // OSC live mode: append a syllable immediately
     appendSyllable(text) {
         this._mode = 'live';
@@ -200,7 +208,12 @@ export class TextBox {
             while (this._revealed < this._syllables.length) {
                 const syl = this._syllables[this._revealed];
                 if (this._audioTimeMs >= (syl.t ?? 0)) {
-                    this._displayedText += syl.text;
+                    // \n\n in text = verse break: clear box for next line
+                    if (syl.text.startsWith('\n\n')) {
+                        this._displayedText = syl.text.replace(/^\n\n/, '');
+                    } else {
+                        this._displayedText += syl.text;
+                    }
                     this._textSpan.textContent = this._displayedText;
                     this._revealed++;
                 } else {

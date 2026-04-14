@@ -11,6 +11,11 @@
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     background: #0d0b14;
     color: #ccc;
@@ -18,7 +23,7 @@ body {
     font-size: 13px;
     display: flex;
     flex-direction: row;
-    min-height: 100vh;
+    height: 100vh;
     gap: 0;
 }
 
@@ -28,9 +33,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px;
-    min-height: 100vh;
+    padding: 24px;
+    height: 100vh;
     background: #0d0b14;
+    overflow: hidden;
 }
 
 /* The stage is the positioned container for bg canvas + sprite + textbox */
@@ -52,6 +58,7 @@ body {
 #panel {
     width: 300px;
     min-width: 280px;
+    height: 100vh;
     background: #13101f;
     border-left: 1px solid #2a2040;
     overflow-y: auto;
@@ -315,7 +322,11 @@ hr { border: none; border-top: 1px solid #2a2040; }
             <input type="file" id="in-audio" accept="audio/*">
             <label style="color:#666; font-size:11px;">Syllable timestamps JSON:</label>
             <input type="file" id="in-syllables" accept=".json">
-            <button id="btn-play-audio">▶ Play</button>
+            <div style="display:flex; gap:6px;">
+                <button id="btn-play-audio"    style="flex:1">▶ Play</button>
+                <button id="btn-pause-audio"   style="flex:1">⏸ Pause</button>
+                <button id="btn-restart-audio" style="flex:1">⏮ Restart</button>
+            </div>
         </div>
     </div>
 

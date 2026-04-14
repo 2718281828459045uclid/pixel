@@ -2,6 +2,8 @@
 *.gif
 *.jpg
 *.jpeg
+# Allow processed sprites in the panel
+!opera-panel/sprites/*.png
 __pycache__/
 *.pyc
 *.pyo
