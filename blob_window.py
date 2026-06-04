@@ -80,10 +80,9 @@ float fbm5(vec2 p) {
 // 8-term polar series + 5-octave FBM warp for chaotic organic shapes.
 
 float radialBoundary(float theta, float s, float t, float hs) {
-    // Per-blob speed multiplier: wide range so blobs morph at distinct rates
-    float spd = 0.15 + hash(vec2(s, 99.0)) * 2.85;
+    // Wide speed spread: 0.10× (barely moves) to 3.0× (very fast)
+    float spd = 0.10 + hash(vec2(s, 99.0)) * 2.90;
 
-    // Angular phase seeds — these set lobe DIRECTIONS, which stay mostly fixed
     float p1 = hash(vec2(s, 1.0)) * TAU;
     float p2 = hash(vec2(s, 2.0)) * TAU;
     float p3 = hash(vec2(s, 3.0)) * TAU;
@@ -93,17 +92,6 @@ float radialBoundary(float theta, float s, float t, float hs) {
     float p7 = hash(vec2(s, 7.0)) * TAU;
     float p8 = hash(vec2(s, 8.0)) * TAU;
 
-    // Temporal phase seeds — independent of angular seeds
-    float q1 = hash(vec2(s, 21.0)) * TAU;
-    float q2 = hash(vec2(s, 22.0)) * TAU;
-    float q3 = hash(vec2(s, 23.0)) * TAU;
-    float q4 = hash(vec2(s, 24.0)) * TAU;
-    float q5 = hash(vec2(s, 25.0)) * TAU;
-    float q6 = hash(vec2(s, 26.0)) * TAU;
-    float q7 = hash(vec2(s, 27.0)) * TAU;
-    float q8 = hash(vec2(s, 28.0)) * TAU;
-
-    // Amplitude oscillation rates — independent per harmonic
     float w1 = (0.15 + hash(vec2(s, 11.0)) * 0.45) * spd;
     float w2 = (0.30 + hash(vec2(s, 12.0)) * 0.70) * spd;
     float w3 = (0.20 + hash(vec2(s, 13.0)) * 1.00) * spd;
@@ -113,30 +101,27 @@ float radialBoundary(float theta, float s, float t, float hs) {
     float w7 = (0.50 + hash(vec2(s, 17.0)) * 1.50) * spd;
     float w8 = (1.00 + hash(vec2(s, 18.0)) * 2.00) * spd;
 
-    // Tiny angular drift on first 3 terms only — a couple blobs rotate very slowly
-    // max ~0.04 rad/s, so full rotation takes 157+ seconds; mostly feels like stillness
-    float dr1 = (hash(vec2(s, 41.0)) - 0.5) * 0.08;  // ±0.04 rad/s
-    float dr2 = (hash(vec2(s, 42.0)) - 0.5) * 0.06;
-    float dr3 = (hash(vec2(s, 43.0)) - 0.5) * 0.04;
+    // ~40-50% of blobs get backward-rotating harmonics on terms 3, 5, 7
+    float d3 = hash(vec2(s, 31.0)) > 0.45 ? 1.0 : -1.0;
+    float d5 = hash(vec2(s, 35.0)) > 0.40 ? 1.0 : -1.0;
+    float d7 = hash(vec2(s, 37.0)) > 0.50 ? 1.0 : -1.0;
 
     float r = 1.0;
-    // Amplitude-modulated form: sin(n*theta + p) * sin(t*w + q)
-    // The angular shape is locked; only the lobe's push/pull oscillates.
-    // Different w values → lobes beat against each other → chaotic diverging shape.
-    r += 0.30 * sin(1.0*theta + p1 + t*dr1) * sin(t*w1 + q1);
-    r += 0.22 * sin(2.0*theta + p2 + t*dr2) * sin(t*w2 + q2);
-    r += 0.16 * sin(3.0*theta + p3 + t*dr3) * sin(t*w3 + q3);
-    r += 0.12 * cos(2.0*theta + p4        ) * sin(t*w4 + q4);
-    r += 0.10 * cos(4.0*theta + p5        ) * cos(t*w5 + q5);
-    r += 0.08 * sin(5.0*theta + p6        ) * sin(t*w6 + q6);
-    r += 0.06 * sin(6.0*theta + p7        ) * cos(t*w7 + q7);
-    r += 0.05 * cos(7.0*theta + p8        ) * sin(t*w8 + q8);
+    r += 0.28 * sin(1.0*theta + p1 + t*w1);
+    r += 0.20 * sin(2.0*theta + p2 + t*w2);
+    r += 0.14 * sin(3.0*theta + p3 + d3*t*w3);
+    r += 0.10 * cos(2.0*theta + p4 + t*w4);
+    r += 0.09 * cos(4.0*theta + p5 + d5*t*w5);
+    r += 0.07 * sin(5.0*theta + p6 + t*w6);
+    r += 0.05 * sin(6.0*theta + p7 + d7*t*w7);
+    r += 0.04 * cos(7.0*theta + p8 + t*w8);
 
-    // Radial FBM pulse: sample moves in/out along bdir over time (divergence, not curl)
+    // 5-octave FBM warp: stronger amplitude (0.28 vs old 0.16) + scaled by spd
     vec2 bdir = vec2(cos(theta), sin(theta));
-    float radial_t = sin(t * spd * 0.25 + hash(vec2(s, 77.0)) * TAU);
-    float fine = fbm5(bdir * (4.1 + radial_t * 1.4) + vec2(s * 0.031, s * 0.019));
-    r += (fine - 0.5) * 0.26;
+    float fine = fbm5(bdir * 4.1
+                      + vec2(s * 0.031, s * 0.019)
+                      + vec2(t * 0.13, t * 0.09) * spd);
+    r += (fine - 0.5) * 0.28;
 
     r = mix(1.0, r, hs);
     return max(r, 0.04);
@@ -225,7 +210,7 @@ def spawn_blobs(n, W, H):
     blobs = []
     for _ in range(n):
         roll = random.random()
-        btype = 1 if roll < 0.50 else (0 if roll < 0.85 else 2)  # fewer light, more shadow
+        btype = 1 if roll < 0.50 else (0 if roll < 0.85 else 2)  
         b = make_blob(random.random() * W, random.random() * H, btype, W, H)
         blobs.append(b)
         if btype == 1 and random.random() < 0.15:
