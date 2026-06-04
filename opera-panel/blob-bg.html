@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blob Background</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+}
+#bg-canvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+#timer {
+    position: fixed;
+    bottom: 18px;
+    right: 22px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #ffffff22;
+    letter-spacing: 0.1em;
+    pointer-events: none;
+    transition: opacity 1s;
+}
+#done-overlay {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 3s ease-in;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="timer">0:00</div>
+<div id="done-overlay"></div>
+
+<script type="module">
+import { BlobRenderer } from './js/renderer.js';
+
+const DURATION = 4.5 * 60; // seconds
+const FADE_START = DURATION - 4; // begin fade 4s before end
+
+const canvas     = document.getElementById('bg-canvas');
+const timerEl    = document.getElementById('timer');
+const doneEl     = document.getElementById('done-overlay');
+
+// ── Size canvas to window, use a 16:9 art space at a reasonable pixel density
+function computeLayout() {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    // Art resolution: ~192 wide at 16:9, scaled to fill window
+    // Keep art pixels at least 3 CSS pixels for the pixel-art texture
+    const artW = 192;
+    const artH = Math.round(artW * H / W);
+    const scale = Math.max(1, Math.round(W / artW));
+    canvas.width  = artW * scale;
+    canvas.height = artH * scale;
+    return { artW, artH, scale };
+}
+
+const { artW, artH, scale } = computeLayout();
+
+const renderer = new BlobRenderer(canvas);
+await renderer.ready();
+
+// Config
+renderer.artWidth    = artW;
+renderer.artHeight   = artH;
+renderer.scale       = scale;
+renderer.scrollMode  = 'toroidal';
+renderer.scrollDir   = 'NE';
+renderer.scrollSpeed = 3.5;        // gentle drift
+renderer.targetBlobCount = 24;
+renderer.colors = {
+    bkg:       '#2b2340',
+    shadow:    '#17132a',
+    light:     '#8a72aa',
+    highlight: '#dcc8f8',
+};
+renderer._spawnInitialBlobs();
+
+// ── Animation loop
+let startTime  = null;
+let lastTime   = null;
+let stopped    = false;
+
+function frame(now) {
+    if (stopped) return;
+
+    if (startTime === null) {
+        startTime = now;
+        lastTime  = now;
+    }
+
+    const elapsed   = (now - startTime) / 1000;
+    const deltaTime = (now - lastTime)  / 1000;
+    lastTime = now;
+
+    if (elapsed >= DURATION) {
+        // Freeze on final frame
+        renderer.render(elapsed);
+        stopped = true;
+        timerEl.style.opacity = '0';
+        doneEl.style.opacity  = '1';
+        return;
+    }
+
+    renderer.updateBlobs(deltaTime);
+    renderer.render(elapsed);
+
+    // Timer display
+    const rem  = DURATION - elapsed;
+    const mins = Math.floor(rem / 60);
+    const secs = Math.floor(rem % 60).toString().padStart(2, '0');
+    timerEl.textContent = `${mins}:${secs}`;
+
+    // Fade overlay approaching end
+    if (elapsed >= FADE_START) {
+        const t = (elapsed - FADE_START) / (DURATION - FADE_START);
+        doneEl.style.transition = 'none';
+        doneEl.style.opacity = t.toFixed(4);
+    }
+
+    requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
