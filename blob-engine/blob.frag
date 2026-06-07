@@ -89,7 +89,7 @@ float radialBoundary(float theta, float s, float t, float hs) {
     r += 0.05 * sin(6.0*theta + p7 + d7*t*w7);
     r += 0.04 * cos(7.0*theta + p8 + d8*t*w8);
 
-    // 5-octave FBM warp: stronger amplitude (0.28 vs old 0.16) + scaled by spd
+    // 5-octave warp: stronger amplitude (0.28 vs old 0.16) + scaled by spd
     vec2 bdir = vec2(cos(theta), sin(theta));
     float fine = fbm5(bdir * 4.1
                       + vec2(s * 0.031, s * 0.019)

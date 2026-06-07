@@ -10,8 +10,6 @@ import pygame
 import moderngl
 from blob_config import *
 
-DURATION = 5 * 60   # seconds before the animation freezes
-
 # ── Blob logic ─────────────────────────────────────────────────────────────────
 
 def make_blob(cx, cy, btype):
@@ -51,6 +49,7 @@ def update_blobs(blobs, dt):
         b['cx'] += d * DRIFT_X * b['drift_mul']
         b['cy'] += d * DRIFT_Y * b['drift_mul']
 
+# this packs up the array of blobs into a format GPU shader can read
 def pack_blobs(blobs):
     pos  = [0.0] * (MAX_BLOBS * 4)
     anim = [0.0] * (MAX_BLOBS * 4)
@@ -90,11 +89,9 @@ def main():
     colors_flat = [v for rgba in COLORS for v in rgba]
     prog['u_colors'].write(struct.pack(f'{len(colors_flat)}f', *colors_flat))
 
-    blobs    = spawn_blobs(NUM_BLOBS)
-    clock    = pygame.time.Clock()
-    elapsed  = 0.0
-    stopped  = False
-    frozen_t = 0.0
+    blobs   = spawn_blobs(NUM_BLOBS)
+    clock   = pygame.time.Clock()
+    elapsed = 0.0
 
     while True:
         for ev in pygame.event.get():
@@ -103,21 +100,12 @@ def main():
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                 pygame.quit(); sys.exit()
 
-        dt = clock.tick(60) / 1000.0
-
-        if not stopped:
-            elapsed += dt
-            if elapsed >= DURATION:
-                stopped  = True
-                frozen_t = elapsed
-
-        t = frozen_t if stopped else elapsed
-
-        if not stopped:
-            update_blobs(blobs, dt)
+        dt       = clock.tick(60) / 1000.0
+        elapsed += dt
+        update_blobs(blobs, dt)
 
         pos_bytes, anim_bytes, n = pack_blobs(blobs)
-        prog['u_time'].value      = t
+        prog['u_time'].value      = elapsed
         prog['u_num_blobs'].value = n
         prog['u_blob_pos'].write(pos_bytes)
         prog['u_blob_anim'].write(anim_bytes)
