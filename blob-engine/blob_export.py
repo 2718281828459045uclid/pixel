@@ -9,7 +9,7 @@ Usage:
 
 import sys, math, random, struct, subprocess, time
 
-DURATION   = 4 * 60 + 30   # seconds (4:30)
+DURATION   = 4 * 60 + 37  # seconds (4:30)
 FPS        = 30
 ART_W      = 128
 ART_H      = 96
@@ -21,11 +21,17 @@ W = ART_W * SCALE
 H = ART_H * SCALE
 TOTAL_FRAMES = DURATION * FPS
 
+def hex_to_gl(h):
+    """Convert a hex color string to a (r, g, b, 1.0) tuple for OpenGL uniforms."""
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (r / 255, g / 255, b / 255, 1.0)
+
 COLORS = [
-    (0x2b/255, 0x23/255, 0x40/255, 1.0),
-    (0x17/255, 0x13/255, 0x2a/255, 1.0),
-    (0x8a/255, 0x72/255, 0xaa/255, 1.0),
-    (0xdc/255, 0xc8/255, 0xf8/255, 1.0),
+    hex_to_gl("#2b2340"),   # bkg
+    hex_to_gl("#17132a"),   # shadow
+    hex_to_gl("#8a72aa"),   # light
+    hex_to_gl("#dcc8f8"),   # highlight
 ]
 
 VERT = """
