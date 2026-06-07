@@ -1,0 +1,9 @@
+{
+  "title": "brownSmoke",
+  "colors": {
+    "bkg": "#32140c",
+    "shadow": "#522a03",
+    "light": "#dbc595",
+    "highlight": "#f4e6f0"
+  }
+}
