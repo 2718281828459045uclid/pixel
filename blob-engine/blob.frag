@@ -12,6 +12,7 @@ uniform vec4  u_colors[4];
 uniform int   u_num_blobs;
 uniform vec4  u_blob_pos[MAX_BLOBS];
 uniform vec4  u_blob_anim[MAX_BLOBS];
+uniform float u_reverse_prob;   // 0 = all harmonics forward, 1 = all backward
 
 // ── Noise ──────────────────────────────────────────────────────────────────
 
@@ -67,20 +68,26 @@ float radialBoundary(float theta, float s, float t, float hs) {
     float w7 = (0.50 + hash(vec2(s, 17.0)) * 1.50) * spd;
     float w8 = (1.00 + hash(vec2(s, 18.0)) * 2.00) * spd;
 
-    // ~40-50% of blobs get backward-rotating harmonics on terms 3, 5, 7
-    float d3 = hash(vec2(s, 31.0)) > 0.45 ? 1.0 : -1.0;
-    float d5 = hash(vec2(s, 35.0)) > 0.40 ? 1.0 : -1.0;
-    float d7 = hash(vec2(s, 37.0)) > 0.50 ? 1.0 : -1.0;
+    // Per-harmonic direction: each independently rolls against u_reverse_prob
+    float thresh = 1.0 - u_reverse_prob;
+    float d1 = hash(vec2(s, 31.0)) > thresh ? -1.0 : 1.0;
+    float d2 = hash(vec2(s, 32.0)) > thresh ? -1.0 : 1.0;
+    float d3 = hash(vec2(s, 33.0)) > thresh ? -1.0 : 1.0;
+    float d4 = hash(vec2(s, 34.0)) > thresh ? -1.0 : 1.0;
+    float d5 = hash(vec2(s, 35.0)) > thresh ? -1.0 : 1.0;
+    float d6 = hash(vec2(s, 36.0)) > thresh ? -1.0 : 1.0;
+    float d7 = hash(vec2(s, 37.0)) > thresh ? -1.0 : 1.0;
+    float d8 = hash(vec2(s, 38.0)) > thresh ? -1.0 : 1.0;
 
     float r = 1.0;
-    r += 0.28 * sin(1.0*theta + p1 + t*w1);
-    r += 0.20 * sin(2.0*theta + p2 + t*w2);
+    r += 0.28 * sin(1.0*theta + p1 + d1*t*w1);
+    r += 0.20 * sin(2.0*theta + p2 + d2*t*w2);
     r += 0.14 * sin(3.0*theta + p3 + d3*t*w3);
-    r += 0.10 * cos(2.0*theta + p4 + t*w4);
+    r += 0.10 * cos(2.0*theta + p4 + d4*t*w4);
     r += 0.09 * cos(4.0*theta + p5 + d5*t*w5);
-    r += 0.07 * sin(5.0*theta + p6 + t*w6);
+    r += 0.07 * sin(5.0*theta + p6 + d6*t*w6);
     r += 0.05 * sin(6.0*theta + p7 + d7*t*w7);
-    r += 0.04 * cos(7.0*theta + p8 + t*w8);
+    r += 0.04 * cos(7.0*theta + p8 + d8*t*w8);
 
     // 5-octave FBM warp: stronger amplitude (0.28 vs old 0.16) + scaled by spd
     vec2 bdir = vec2(cos(theta), sin(theta));
@@ -124,10 +131,11 @@ void main() {
         vec4  ba     = u_blob_anim[i];
         float layer  = bp.z;
         float base_r = bp.w;
-        float s      = ba.x;
-        float phase  = ba.y;
-        float hs     = clamp(ba.z, 0.0, 1.0);
-        float blob_t = u_time + phase;
+        float s        = ba.x;
+        float phase    = ba.y;
+        float hs       = clamp(ba.z, 0.0, 1.0);
+        float morph_mul = ba.w;
+        float blob_t   = u_time * morph_mul + phase;
 
         vec2 center = vec2(bp.x, bp.y);
         // Toroidal wrap

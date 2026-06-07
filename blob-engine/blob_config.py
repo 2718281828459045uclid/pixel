@@ -1,0 +1,61 @@
+"""
+Shared settings for blob_window.py and blob_export.py.
+Edit here — both scripts pick up changes automatically.
+"""
+
+from pathlib import Path
+
+# ── Canvas ─────────────────────────────────────────────────────────────────────
+ART_W  = 128 * 2        # art-pixel grid width  (lower = chunkier pixels)
+ART_H  = 96  * 2        # art-pixel grid height (keep 4:3 ratio with ART_W)
+SCALE  = 4              # screen pixels per art pixel → window is ART_W*SCALE × ART_H*SCALE
+
+# ── Blob counts ────────────────────────────────────────────────────────────────
+NUM_BLOBS  = 36         # blobs spawned at start; more = denser, heavier
+MAX_BLOBS  = 48         # hard shader limit — don't exceed without editing blob.frag
+
+# ── Spawn mix (PROB_LIGHT + PROB_SHADOW must be ≤ 1.0; remainder = highlight) ──
+PROB_LIGHT     = 0.60   # fraction of blobs that are light layer
+PROB_SHADOW    = 0.30   # fraction that are shadow
+SATELLITE_PROB = 0.10   # chance a light blob spawns a small highlight companion
+
+# ── Blob sizes (art pixels, randomised within range) ───────────────────────────
+SHADOW_R_MIN,    SHADOW_R_RANGE    = 18, 12   # large background blobs
+LIGHT_R_MIN,     LIGHT_R_RANGE     =  8,  7   # medium mid-layer blobs
+HIGHLIGHT_R_MIN, HIGHLIGHT_R_RANGE =  5,  5   # small top-layer blobs
+
+# ── Wobble (harmonic_scale: 0 = circle, 1 = max wobble) ───────────────────────
+WOBBLE_MIN   = 0.8      # minimum wobble for any blob
+WOBBLE_RANGE = 0.4      # added randomly on top of min
+
+# ── Motion ─────────────────────────────────────────────────────────────────────
+DRIFT_SPEED = 2         # art-pixels per second (overall pace)
+DRIFT_X     = -6.0      # horizontal direction  (negative = left)
+DRIFT_Y     =  2.0      # vertical direction    (positive = down)
+DRIFT_VAR   = 0.5       # per-blob speed variation ± around 1.0  (0 = all same)
+
+# ── Morph speed (how fast each blob's shape animates) ─────────────────────────
+MORPH_SPEED_MIN = 0.4   # slowest blob  (1.0 = neutral)
+MORPH_SPEED_MAX = 2.2   # fastest blob  — wide range = more variety
+
+# ── Harmonic direction ─────────────────────────────────────────────────────────
+REVERSE_PROB = 0.3      # per-harmonic chance of going backward (0 = all forward, 1 = all backward)
+
+# ── Colors ─────────────────────────────────────────────────────────────────────
+def hex_to_gl(h):
+    """Convert a hex color string to a (r, g, b, 1.0) tuple for OpenGL uniforms."""
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (r / 255, g / 255, b / 255, 1.0)
+
+COLORS = [
+    hex_to_gl("#391515"),   # bkg
+    hex_to_gl("#63150c"),   # shadow
+    hex_to_gl("#994f3d"),   # light
+    hex_to_gl("#ebdbce"),   # highlight
+]
+
+# ── Shaders ────────────────────────────────────────────────────────────────────
+_HERE = Path(__file__).parent
+VERT  = (_HERE / "blob.vert").read_text()
+FRAG  = (_HERE / "blob.frag").read_text()
