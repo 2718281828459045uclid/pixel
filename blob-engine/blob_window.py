@@ -5,10 +5,62 @@ ESC or close window to quit early.
 Edit blob_config.py to change all settings.
 """
 
-import sys, math, random, struct
+import sys, math, random, struct, colorsys
 import pygame
 import moderngl
 from blob_config import *
+
+# ── Color noise helpers ────────────────────────────────────────────────────────
+
+def _rgb_to_hsl(r, g, b):
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    return h * 360.0, s * 100.0, l * 100.0
+
+def _hsl_to_rgb(h, s, l):
+    return colorsys.hls_to_rgb(h / 360.0 % 1.0, l / 100.0, s / 100.0)
+
+def _init_color_noise():
+    hsl = []
+    for c in COLORS:
+        _, s_orig, l_orig = _rgb_to_hsl(*c[:3])
+        hsl.append([
+            random.random() * 360.0,
+            max(0.0, min(100.0, s_orig + random.uniform(-2.0, 2.0))),
+            max(0.0, min(100.0, l_orig + random.uniform(-2.0, 2.0))),
+        ])
+    hue_vel   = [0.0] * len(COLORS)
+    sat_vel   = [0.0] * len(COLORS)
+    light_vel = [0.0, 0.0, 0.0]  # shadow (idx 1), light (idx 2), highlight (idx 3)
+    hl_floor  = hsl[3][2]        # highlight lightness may only rise above this
+    return hsl, hue_vel, sat_vel, light_vel, hl_floor
+
+def _step_color_noise(hsl, hue_vel, sat_vel, light_vel, hl_floor, dt):
+    if not COLOR_NOISE_ENABLED:
+        return [v for c in COLORS for v in c]
+    fs = dt * 60.0
+    for i in range(len(hsl)):
+        hmax = HUE_NOISE_MAX[i]
+        hue_vel[i] += random.uniform(-0.5, 0.5) * hmax * fs
+        hue_vel[i]  = max(-hmax, min(hmax, hue_vel[i]))
+        hsl[i][0]   = (hsl[i][0] + hue_vel[i]) % 360.0
+
+        smax = SAT_NOISE_MAX[i]
+        sat_vel[i] += random.uniform(-0.5, 0.5) * smax * fs
+        sat_vel[i]  = max(-smax, min(smax, sat_vel[i]))
+        hsl[i][1]   = max(0.0, min(100.0, hsl[i][1] + sat_vel[i]))
+
+    for j, i in enumerate((1, 2, 3)):  # shadow, light, highlight
+        lmax = LIGHTNESS_NOISE_MAX[j]
+        light_vel[j] += random.uniform(-0.5, 0.5) * lmax * fs
+        light_vel[j]  = max(-lmax, min(lmax, light_vel[j]))
+        new_l = hsl[i][2] + light_vel[j]
+        floor = hl_floor if i == 3 else 0.0
+        hsl[i][2] = max(floor, min(100.0, new_l))
+
+    flat = []
+    for h, s, l in hsl:
+        flat.extend([*_hsl_to_rgb(h, s, l), 1.0])
+    return flat
 
 # ── Blob logic ─────────────────────────────────────────────────────────────────
 
@@ -86,8 +138,8 @@ def main():
     prog['u_res'].value          = (ART_W, ART_H)
     prog['u_scale'].value        = float(SCALE)
     prog['u_reverse_prob'].value = float(REVERSE_PROB)
-    colors_flat = [v for rgba in COLORS for v in rgba]
-    prog['u_colors'].write(struct.pack(f'{len(colors_flat)}f', *colors_flat))
+
+    color_hsl, hue_vel, sat_vel, light_vel, hl_floor = _init_color_noise()
 
     blobs   = spawn_blobs(NUM_BLOBS)
     clock   = pygame.time.Clock()
@@ -103,6 +155,9 @@ def main():
         dt       = clock.tick(60) / 1000.0
         elapsed += dt
         update_blobs(blobs, dt)
+
+        colors_flat = _step_color_noise(color_hsl, hue_vel, sat_vel, light_vel, hl_floor, dt)
+        prog['u_colors'].write(struct.pack(f'{len(colors_flat)}f', *colors_flat))
 
         pos_bytes, anim_bytes, n = pack_blobs(blobs)
         prog['u_time'].value      = elapsed

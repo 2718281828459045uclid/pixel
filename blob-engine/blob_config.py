@@ -21,8 +21,8 @@ SATELLITE_PROB = 0.10   # chance a light blob spawns a small highlight companion
 
 # ── Blob sizes (art pixels, randomised within range) ───────────────────────────
 SHADOW_R_MIN,    SHADOW_R_RANGE    = 12, 8   # large background blobs
-LIGHT_R_MIN,     LIGHT_R_RANGE     =  8,  4  # medium mid-layer blobs
-HIGHLIGHT_R_MIN, HIGHLIGHT_R_RANGE =  5,  2   # small top-layer blobs
+LIGHT_R_MIN,     LIGHT_R_RANGE     = 10,  2  # medium mid-layer blobs
+HIGHLIGHT_R_MIN, HIGHLIGHT_R_RANGE =  6,  2   # small top-layer blobs
 
 # ── Wobble (harmonic_scale: 0 = circle, 1 = max wobble) ───────────────────────
 WOBBLE_MIN   = 0.1      # minimum wobble for any blob
@@ -54,6 +54,17 @@ COLORS = [
     hex_to_gl("#4f6744"),   # light
     hex_to_gl("#edeeb1"),   # highlight
 ]
+
+# ── Color noise ────────────────────────────────────────────────────────────────
+# Hue + saturation drift all 4 colors.
+# Lightness: shadow & light drift freely; highlight drifts upward only (floor = initial L).
+# Background lightness is fixed.
+COLOR_NOISE_ENABLED = True
+#                        bkg    shadow  light   highlight
+HUE_NOISE_MAX       = ( 0.08,   0.05,  0.10,   0.03 )  # degrees per frame
+SAT_NOISE_MAX       = ( 0.05,   0.08,  0.12,   0.04 )  # % per frame
+#                        shadow  light   highlight
+LIGHTNESS_NOISE_MAX = ( 0.08,   0.10,   0.06 )          # % per frame
 
 # ── Shaders ────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).parent
