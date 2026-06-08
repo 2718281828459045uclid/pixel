@@ -101,6 +101,15 @@ float radialBoundary(float theta, float s, float t, float hs) {
     return max(r, 0.04);
 }
 
+// ── Hue rotation (Rodrigues around (1,1,1)/√3 axis) ───────────────────────
+
+vec3 hueRotate(vec3 c, float deg) {
+    float a = radians(deg);
+    float ca = cos(a), sa = sin(a);
+    vec3  k  = vec3(0.57735);
+    return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+
 // ── Blob interior test ─────────────────────────────────────────────────────
 
 float blobInside(vec2 p, vec2 center, float base_r, float s, float t, float hs, float aspect, float angle) {
@@ -125,8 +134,8 @@ void main() {
     // OpenGL y-origin is bottom; flip to match JS convention (y=0 at top)
     pixel.y = u_res.y - 1.0 - pixel.y;
 
-    float shadow_hit    = 0.0;
-    float light_hit     = 0.0;
+    float shadow_hit    = 0.0;  float shadow_hue  = 0.0;
+    float light_hit     = 0.0;  float light_hue   = 0.0;
     float highlight_hit = 0.0;
 
     for (int i = 0; i < MAX_BLOBS; i++) {
@@ -155,15 +164,15 @@ void main() {
         float val = blobInside(pixel, center, base_r, s, blob_t, hs, aspect, angle);
 
         if (val > 0.5) {
-            if      (layer < 0.5) shadow_hit    = 1.0;
-            else if (layer < 1.5) light_hit     = 1.0;
-            else                  highlight_hit = 1.0;
+            if      (layer < 0.5) { shadow_hit    = 1.0; shadow_hue  = bsh.z; }
+            else if (layer < 1.5) { light_hit     = 1.0; light_hue   = bsh.z; }
+            else                  { highlight_hit = 1.0; }
         }
     }
 
     vec3 color = u_colors[0].rgb;
-    if (shadow_hit    > 0.5) color = mix(color, u_colors[1].rgb, u_colors[1].a);
-    if (light_hit     > 0.5) color = mix(color, u_colors[2].rgb, u_colors[2].a);
+    if (shadow_hit    > 0.5) color = mix(color, hueRotate(u_colors[1].rgb, shadow_hue), u_colors[1].a);
+    if (light_hit     > 0.5) color = mix(color, hueRotate(u_colors[2].rgb, light_hue),  u_colors[2].a);
     if (highlight_hit > 0.5 && light_hit > 0.5) color = mix(color, u_colors[3].rgb, u_colors[3].a);
 
     fragColor = vec4(color, 1.0);

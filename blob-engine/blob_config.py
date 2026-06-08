@@ -37,6 +37,9 @@ HIGHLIGHT_SPEED_MUL  = 2.5   # extra speed multiplier applied to highlight blobs
 HIGHLIGHT_ASPECT_MIN = 0.20  # thinnest oval (1.0 = circle, lower = thinner)
 HIGHLIGHT_ASPECT_MAX = 1.0   # most circular
 
+# Per-blob hue noise for shadow & light (global hue noise is disabled for those types)
+BLOB_HUE_NOISE_MAX = 5    # max hue degrees drift per frame per blob (floor/ceil ±1°)
+
 # ── Morph speed (how fast each blob's shape animates) ─────────────────────────
 MORPH_SPEED_MIN = 0.1   # slowest blob  (1.0 = neutral)
 MORPH_SPEED_MAX = 1.2   # fastest blob  — wide range = more variety
@@ -72,7 +75,7 @@ LIGHTNESS_NOISE_MAX = ( 0,   0,   0 )          # % per frame
 # Alpha (bkg always opaque; shadow/light/highlight randomised 70–100% at startup)
 ALPHA_MIN       = 0.20                    # opacity floor
 #                   shadow  light   highlight
-ALPHA_NOISE_MAX = ( 0.003,  0.004,  0.002 )  # opacity drift per frame
+ALPHA_NOISE_MAX = ( 0.015,  0.020,  0.010 )  # opacity drift per frame
 
 
 # ── Shaders ────────────────────────────────────────────────────────────────────

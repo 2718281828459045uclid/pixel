@@ -51,6 +51,8 @@ def _step_color_noise(hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alph
         return [v for c in COLORS for v in c]
     fs = dt * 60.0
     for i in range(len(hsl)):
+        if i in (1, 2):  # shadow & light use per-blob hue noise instead
+            continue
         hmax = HUE_NOISE_MAX[i]
         hue_vel[i] += random.uniform(-0.5, 0.5) * hmax * fs
         hue_vel[i]  = max(-hmax, min(hmax, hue_vel[i]))
@@ -102,8 +104,11 @@ def make_blob(cx, cy, btype):
         'harmonic_scale': WOBBLE_MIN + random.random() * WOBBLE_RANGE,
         'drift_mul': (HIGHLIGHT_SPEED_MUL if btype == 2 else 1.0) * (1.0 + (random.random() * 2 - 1) * DRIFT_VAR),
         'morph_mul': MORPH_SPEED_MIN + random.random() * (MORPH_SPEED_MAX - MORPH_SPEED_MIN),
-        'aspect': aspect,
-        'angle':  angle,
+        'aspect':     aspect,
+        'angle':      angle,
+        'hue_phases': [random.uniform(0, 2*math.pi) for _ in range(4)] if btype in (0, 1) else None,
+        'hue_freqs':  [random.uniform(0.03, 0.18)  for _ in range(4)] if btype in (0, 1) else None,
+        'hue_offset': 0.0,
     }
 
 def spawn_blobs(n):
@@ -119,11 +124,15 @@ def spawn_blobs(n):
             blobs.append(make_blob(hx, hy, 2))
     return blobs
 
-def update_blobs(blobs, dt):
+def update_blobs(blobs, dt, elapsed):
     d = DRIFT_SPEED * dt / math.sqrt(2)
     for b in blobs:
         b['cx'] += d * DRIFT_X * b['drift_mul']
         b['cy'] += d * DRIFT_Y * b['drift_mul']
+        if b['type'] in (0, 1):  # shadow and light
+            # 4-octave sum-of-sines: smooth, continuous, no random jitter
+            raw = sum(math.sin(p + f * elapsed) for p, f in zip(b['hue_phases'], b['hue_freqs']))
+            b['hue_offset'] = (raw / len(b['hue_phases'])) * 5.0  # normalise to [-5, +5]
 
 # this packs up the array of blobs into a format GPU shader can read
 def pack_blobs(blobs):
@@ -134,7 +143,7 @@ def pack_blobs(blobs):
     for i, b in enumerate(blobs[:n]):
         pos  [i*4:i*4+4] = [b['cx'], b['cy'], float(b['type']), b['base_r']]
         anim [i*4:i*4+4] = [b['seed'], b['phase'], b['harmonic_scale'], b['morph_mul']]
-        shape[i*4:i*4+4] = [b['aspect'], b['angle'], 0.0, 0.0]
+        shape[i*4:i*4+4] = [b['aspect'], b['angle'], b['hue_offset'], 0.0]
     return (
         struct.pack(f'{MAX_BLOBS*4}f', *pos),
         struct.pack(f'{MAX_BLOBS*4}f', *anim),
@@ -181,7 +190,7 @@ def main():
 
         dt       = clock.tick(60) / 1000.0
         elapsed += dt
-        update_blobs(blobs, dt)
+        update_blobs(blobs, dt, elapsed)
 
         colors_flat = _step_color_noise(color_hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alpha, alpha_vel, dt)
         prog['u_colors'].write(struct.pack(f'{len(colors_flat)}f', *colors_flat))
