@@ -20,9 +20,9 @@ def _hsl_to_rgb(h, s, l):
     return colorsys.hls_to_rgb(h / 360.0 % 1.0, l / 100.0, s / 100.0)
 
 def _init_color_noise():
+    orig_hsl = [_rgb_to_hsl(*c[:3]) for c in COLORS]  # original H,S,L per color
     hsl = []
-    for c in COLORS:
-        _, s_orig, l_orig = _rgb_to_hsl(*c[:3])
+    for _, s_orig, l_orig in orig_hsl:
         hsl.append([
             random.random() * 360.0,
             max(0.0, min(100.0, s_orig + random.uniform(-2.0, 2.0))),
@@ -31,10 +31,22 @@ def _init_color_noise():
     hue_vel   = [0.0] * len(COLORS)
     sat_vel   = [0.0] * len(COLORS)
     light_vel = [0.0, 0.0, 0.0]  # shadow (idx 1), light (idx 2), highlight (idx 3)
-    hl_floor  = hsl[3][2]        # highlight lightness may only rise above this
-    return hsl, hue_vel, sat_vel, light_vel, hl_floor
+    # lightness: shadow & light ±10 of original; highlight: startup value as floor
+    l_bounds = [
+        (max(0.0, orig_hsl[1][2] - 10.0), min(100.0, orig_hsl[1][2] + 10.0)),
+        (max(0.0, orig_hsl[2][2] - 10.0), min(100.0, orig_hsl[2][2] + 10.0)),
+        (hsl[3][2], 100.0),
+    ]
+    # saturation: all 4 colors ±10 of original
+    s_bounds = [
+        (max(0.0, orig_hsl[i][1] - 10.0), min(100.0, orig_hsl[i][1] + 10.0))
+        for i in range(len(COLORS))
+    ]
+    alpha     = [1.0] + [random.uniform(ALPHA_MIN, 1.0) for _ in range(3)]
+    alpha_vel = [0.0, 0.0, 0.0]  # shadow, light, highlight
+    return hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alpha, alpha_vel
 
-def _step_color_noise(hsl, hue_vel, sat_vel, light_vel, hl_floor, dt):
+def _step_color_noise(hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alpha, alpha_vel, dt):
     if not COLOR_NOISE_ENABLED:
         return [v for c in COLORS for v in c]
     fs = dt * 60.0
@@ -47,19 +59,24 @@ def _step_color_noise(hsl, hue_vel, sat_vel, light_vel, hl_floor, dt):
         smax = SAT_NOISE_MAX[i]
         sat_vel[i] += random.uniform(-0.5, 0.5) * smax * fs
         sat_vel[i]  = max(-smax, min(smax, sat_vel[i]))
-        hsl[i][1]   = max(0.0, min(100.0, hsl[i][1] + sat_vel[i]))
+        slo, shi = s_bounds[i]
+        hsl[i][1]   = max(slo, min(shi, hsl[i][1] + sat_vel[i]))
 
     for j, i in enumerate((1, 2, 3)):  # shadow, light, highlight
         lmax = LIGHTNESS_NOISE_MAX[j]
         light_vel[j] += random.uniform(-0.5, 0.5) * lmax * fs
         light_vel[j]  = max(-lmax, min(lmax, light_vel[j]))
-        new_l = hsl[i][2] + light_vel[j]
-        floor = hl_floor if i == 3 else 0.0
-        hsl[i][2] = max(floor, min(100.0, new_l))
+        lo, hi = l_bounds[j]
+        hsl[i][2] = max(lo, min(hi, hsl[i][2] + light_vel[j]))
+
+        amax = ALPHA_NOISE_MAX[j]
+        alpha_vel[j] += random.uniform(-0.5, 0.5) * amax * fs
+        alpha_vel[j]  = max(-amax, min(amax, alpha_vel[j]))
+        alpha[i]      = max(ALPHA_MIN, min(1.0, alpha[i] + alpha_vel[j]))
 
     flat = []
-    for h, s, l in hsl:
-        flat.extend([*_hsl_to_rgb(h, s, l), 1.0])
+    for i, (h, s, l) in enumerate(hsl):
+        flat.extend([*_hsl_to_rgb(h, s, l), alpha[i]])
     return flat
 
 # ── Blob logic ─────────────────────────────────────────────────────────────────
@@ -71,6 +88,11 @@ def make_blob(cx, cy, btype):
         SHADOW_R_MIN    + random.random() * SHADOW_R_RANGE     if btype == 0 else
         LIGHT_R_MIN     + random.random() * LIGHT_R_RANGE
     )
+    if btype == 2:
+        aspect = HIGHLIGHT_ASPECT_MIN + random.random() * (HIGHLIGHT_ASPECT_MAX - HIGHLIGHT_ASPECT_MIN)
+        angle  = random.random() * math.pi
+    else:
+        aspect, angle = 1.0, 0.0
     return {
         'cx': cx, 'cy': cy,
         'type': btype,
@@ -78,8 +100,10 @@ def make_blob(cx, cy, btype):
         'seed': seed,
         'phase': random.random() * 100,
         'harmonic_scale': WOBBLE_MIN + random.random() * WOBBLE_RANGE,
-        'drift_mul': 1.0 + (random.random() * 2 - 1) * DRIFT_VAR,
+        'drift_mul': (HIGHLIGHT_SPEED_MUL if btype == 2 else 1.0) * (1.0 + (random.random() * 2 - 1) * DRIFT_VAR),
         'morph_mul': MORPH_SPEED_MIN + random.random() * (MORPH_SPEED_MAX - MORPH_SPEED_MIN),
+        'aspect': aspect,
+        'angle':  angle,
     }
 
 def spawn_blobs(n):
@@ -103,15 +127,18 @@ def update_blobs(blobs, dt):
 
 # this packs up the array of blobs into a format GPU shader can read
 def pack_blobs(blobs):
-    pos  = [0.0] * (MAX_BLOBS * 4)
-    anim = [0.0] * (MAX_BLOBS * 4)
+    pos   = [0.0] * (MAX_BLOBS * 4)
+    anim  = [0.0] * (MAX_BLOBS * 4)
+    shape = [0.0] * (MAX_BLOBS * 4)  # x=aspect, y=angle
     n = min(len(blobs), MAX_BLOBS)
     for i, b in enumerate(blobs[:n]):
-        pos [i*4:i*4+4] = [b['cx'], b['cy'], float(b['type']), b['base_r']]
-        anim[i*4:i*4+4] = [b['seed'], b['phase'], b['harmonic_scale'], b['morph_mul']]
+        pos  [i*4:i*4+4] = [b['cx'], b['cy'], float(b['type']), b['base_r']]
+        anim [i*4:i*4+4] = [b['seed'], b['phase'], b['harmonic_scale'], b['morph_mul']]
+        shape[i*4:i*4+4] = [b['aspect'], b['angle'], 0.0, 0.0]
     return (
         struct.pack(f'{MAX_BLOBS*4}f', *pos),
         struct.pack(f'{MAX_BLOBS*4}f', *anim),
+        struct.pack(f'{MAX_BLOBS*4}f', *shape),
         n,
     )
 
@@ -139,7 +166,7 @@ def main():
     prog['u_scale'].value        = float(SCALE)
     prog['u_reverse_prob'].value = float(REVERSE_PROB)
 
-    color_hsl, hue_vel, sat_vel, light_vel, hl_floor = _init_color_noise()
+    color_hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alpha, alpha_vel = _init_color_noise()
 
     blobs   = spawn_blobs(NUM_BLOBS)
     clock   = pygame.time.Clock()
@@ -156,14 +183,15 @@ def main():
         elapsed += dt
         update_blobs(blobs, dt)
 
-        colors_flat = _step_color_noise(color_hsl, hue_vel, sat_vel, light_vel, hl_floor, dt)
+        colors_flat = _step_color_noise(color_hsl, hue_vel, sat_vel, light_vel, l_bounds, s_bounds, alpha, alpha_vel, dt)
         prog['u_colors'].write(struct.pack(f'{len(colors_flat)}f', *colors_flat))
 
-        pos_bytes, anim_bytes, n = pack_blobs(blobs)
+        pos_bytes, anim_bytes, shape_bytes, n = pack_blobs(blobs)
         prog['u_time'].value      = elapsed
         prog['u_num_blobs'].value = n
         prog['u_blob_pos'].write(pos_bytes)
         prog['u_blob_anim'].write(anim_bytes)
+        prog['u_blob_shape'].write(shape_bytes)
 
         ctx.clear(0.0, 0.0, 0.0)
         vao.render(moderngl.TRIANGLE_STRIP)

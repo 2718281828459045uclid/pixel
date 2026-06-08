@@ -3,7 +3,7 @@ out vec4 fragColor;
 
 #define PI  3.14159265358979323846
 #define TAU 6.28318530717958647692
-#define MAX_BLOBS 48
+#define MAX_BLOBS 100
 
 uniform vec2  u_res;
 uniform float u_time;
@@ -12,6 +12,7 @@ uniform vec4  u_colors[4];
 uniform int   u_num_blobs;
 uniform vec4  u_blob_pos[MAX_BLOBS];
 uniform vec4  u_blob_anim[MAX_BLOBS];
+uniform vec4  u_blob_shape[MAX_BLOBS];  // x=aspect (1=circle, <1=thin), y=angle
 uniform float u_reverse_prob;   // 0 = all harmonics forward, 1 = all backward
 
 // ── Noise ──────────────────────────────────────────────────────────────────
@@ -102,12 +103,16 @@ float radialBoundary(float theta, float s, float t, float hs) {
 
 // ── Blob interior test ─────────────────────────────────────────────────────
 
-float blobInside(vec2 p, vec2 center, float base_r, float s, float t, float hs) {
+float blobInside(vec2 p, vec2 center, float base_r, float s, float t, float hs, float aspect, float angle) {
     vec2  d    = p - center;
-    float dist = length(d);
-    if (dist > base_r * 2.10) return 0.0;
+    if (length(d) > base_r * 2.10) return 0.0;
+    // Rotate into blob's local frame, then squeeze x to create oval
+    float cr = cos(angle), sr = sin(angle);
+    vec2  rd = vec2(d.x*cr + d.y*sr, -d.x*sr + d.y*cr);
+    rd.x /= max(aspect, 0.01);
+    float dist  = length(rd);
     if (dist < base_r * 0.04) return 1.0;
-    float theta    = atan(d.y, d.x);
+    float theta    = atan(rd.y, rd.x);
     float boundary = base_r * radialBoundary(theta, s, t, hs);
     return dist < boundary ? 1.0 : 0.0;
 }
@@ -129,6 +134,7 @@ void main() {
 
         vec4  bp     = u_blob_pos[i];
         vec4  ba     = u_blob_anim[i];
+        vec4  bsh    = u_blob_shape[i];
         float layer  = bp.z;
         float base_r = bp.w;
         float s        = ba.x;
@@ -136,6 +142,8 @@ void main() {
         float hs       = clamp(ba.z, 0.0, 1.0);
         float morph_mul = ba.w;
         float blob_t   = u_time * morph_mul + phase;
+        float aspect   = bsh.x;
+        float angle    = bsh.y;
 
         vec2 center = vec2(bp.x, bp.y);
         // Toroidal wrap
@@ -144,7 +152,7 @@ void main() {
         delta.y -= u_res.y * floor(delta.y / u_res.y + 0.5);
         center = pixel - delta;
 
-        float val = blobInside(pixel, center, base_r, s, blob_t, hs);
+        float val = blobInside(pixel, center, base_r, s, blob_t, hs, aspect, angle);
 
         if (val > 0.5) {
             if      (layer < 0.5) shadow_hit    = 1.0;
@@ -153,10 +161,10 @@ void main() {
         }
     }
 
-    vec4 color = u_colors[0];
-    if (shadow_hit    > 0.5) color = u_colors[1];
-    if (light_hit     > 0.5) color = u_colors[2];
-    if (highlight_hit > 0.5 && light_hit > 0.5) color = u_colors[3];
+    vec3 color = u_colors[0].rgb;
+    if (shadow_hit    > 0.5) color = mix(color, u_colors[1].rgb, u_colors[1].a);
+    if (light_hit     > 0.5) color = mix(color, u_colors[2].rgb, u_colors[2].a);
+    if (highlight_hit > 0.5 && light_hit > 0.5) color = mix(color, u_colors[3].rgb, u_colors[3].a);
 
-    fragColor = color;
+    fragColor = vec4(color, 1.0);
 }
