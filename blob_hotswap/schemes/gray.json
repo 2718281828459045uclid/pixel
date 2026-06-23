@@ -1,0 +1,9 @@
+{
+  "title": "gray",
+  "colors": {
+    "bkg": "#090f1c",
+    "shadow": "#0a0521",
+    "light": "#4c4555",
+    "highlight": "#706b76"
+  }
+}
