@@ -55,10 +55,10 @@ def hex_to_gl(h):
     return (r / 255, g / 255, b / 255, 1.0)
 
 COLORS = [
-    hex_to_gl("#111b02"),   # bkg
-    hex_to_gl("#4e6952"),   # shadow
-    hex_to_gl("#4f6744"),   # light
-    hex_to_gl("#edeeb1"),   # highlight
+    hex_to_gl("#090f1c"),   # bkg
+    hex_to_gl("#0a0521"),   # shadow
+    hex_to_gl("#4c4555"),   # light
+    hex_to_gl("#706b76"),   # highlight
 ]
 
 # ── Color noise ────────────────────────────────────────────────────────────────
