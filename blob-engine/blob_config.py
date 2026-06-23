@@ -15,24 +15,24 @@ NUM_BLOBS  = 24         # blobs spawned at start; more = denser, heavier
 MAX_BLOBS  = 48         # hard shader limit — don't exceed without editing blob.frag
 
 # ── Spawn mix (PROB_LIGHT + PROB_SHADOW must be ≤ 1.0; remainder = highlight) ──
-PROB_LIGHT     = 0.60   # fraction of blobs that are light layer
-PROB_SHADOW    = 0.30   # fraction that are shadow
-SATELLITE_PROB = 0.10   # chance a light blob spawns a small highlight companion
+PROB_LIGHT     = 0.35   # fraction of blobs that are light layer
+PROB_SHADOW    = 0.40   # fraction that are shadow
+SATELLITE_PROB = 0.25   # chance a light blob spawns a small highlight companion
 
 # ── Blob sizes (art pixels, randomised within range) ───────────────────────────
-SHADOW_R_MIN,    SHADOW_R_RANGE    = 12, 8   # large background blobs
+SHADOW_R_MIN,    SHADOW_R_RANGE    = 20, 8   # large background blobs
 LIGHT_R_MIN,     LIGHT_R_RANGE     =  8,  4  # medium mid-layer blobs
-HIGHLIGHT_R_MIN, HIGHLIGHT_R_RANGE =  5,  2   # small top-layer blobs
+HIGHLIGHT_R_MIN, HIGHLIGHT_R_RANGE =  6,  2   # small top-layer blobs
 
 # ── Wobble (harmonic_scale: 0 = circle, 1 = max wobble) ───────────────────────
 WOBBLE_MIN   = 0.1      # minimum wobble for any blob
-WOBBLE_RANGE = 0.7      # added randomly on top of min
+WOBBLE_RANGE = 0.3      # added randomly on top of min
 
 # ── Motion ─────────────────────────────────────────────────────────────────────
-DRIFT_SPEED = 3         # art-pixels per second (overall pace)
-DRIFT_X     = 2.0      # horizontal direction  (negative = left)
-DRIFT_Y     =  -3.0      # vertical direction    (positive = down)
-DRIFT_VAR   = 0.2       # per-blob speed variation ± around 1.0  (0 = all same)
+DRIFT_SPEED = 1         # art-pixels per second (overall pace)
+DRIFT_X     = -1.5      # horizontal direction  (negative = left)
+DRIFT_Y     =  3.0      # vertical direction    (positive = down)
+DRIFT_VAR   = 0.5       # per-blob speed variation ± around 1.0  (0 = all same)
 
 # ── Morph speed (how fast each blob's shape animates) ─────────────────────────
 MORPH_SPEED_MIN = 0.1   # slowest blob  (1.0 = neutral)
@@ -49,10 +49,10 @@ def hex_to_gl(h):
     return (r / 255, g / 255, b / 255, 1.0)
 
 COLORS = [
-    hex_to_gl("#111b02"),   # bkg
-    hex_to_gl("#4e6952"),   # shadow
-    hex_to_gl("#4f6744"),   # light
-    hex_to_gl("#edeeb1"),   # highlight
+    hex_to_gl("#2e293c"),   # bkg
+    hex_to_gl("#15092a"),   # shadow
+    hex_to_gl("#5e4a79"),   # light
+    hex_to_gl("#d7d4c6"),   # highlight
 ]
 
 # ── Shaders ────────────────────────────────────────────────────────────────────
