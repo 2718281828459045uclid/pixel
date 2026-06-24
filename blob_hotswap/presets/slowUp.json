@@ -1,0 +1,31 @@
+{
+  "ART_W": 160,
+  "ART_H": 120,
+  "SCALE": 4,
+  "NUM_BLOBS": 44,
+  "PROB_LIGHT": 0.78,
+  "PROB_SHADOW": 0.27,
+  "SATELLITE_PROB": 0.17,
+  "SHADOW_R_MIN": 25.0,
+  "SHADOW_R_RANGE": 11.0,
+  "LIGHT_R_MIN": 1.0,
+  "LIGHT_R_RANGE": 12.5,
+  "HIGHLIGHT_R_MIN": 2.0,
+  "HIGHLIGHT_R_RANGE": 7.5,
+  "WOBBLE_MIN": 0.1,
+  "WOBBLE_RANGE": 0.63,
+  "DRIFT_SPEED": 1.8,
+  "DRIFT_X": 0.4,
+  "DRIFT_Y": -1.6,
+  "DRIFT_VAR": 0.5,
+  "MORPH_SPEED_MIN": 0.0,
+  "MORPH_SPEED_MAX": 2.0,
+  "REVERSE_PROB": 0.48,
+  "COLORS": {
+    "bkg": "#a69894",
+    "shadow": "#1b2136",
+    "light": "#6f5e7d",
+    "highlight": "#8b7484"
+  },
+  "SEED": 2042562010
+}
